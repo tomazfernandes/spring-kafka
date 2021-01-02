@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2019 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,6 +101,36 @@ public interface MessageListenerContainer extends SmartLifecycle {
 	}
 
 	/**
+	 * Pause this partition before the next poll(). This is a thread-safe operation, the
+	 * actual pause is processed by the consumer thread.
+	 * @since 2.7.0
+	 * @param topicPartition the topicPartition to pause.
+	 */
+	default void pausePartition(TopicPartition topicPartition) {
+		throw new UnsupportedOperationException("This container doesn't support pausing a partition");
+	}
+
+	/**
+	 * Resume this partition before the next poll(). This is a thread-safe operation, the
+	 * actual pause is processed by the consumer thread.
+	 * @since 2.7.0
+	 * @param topicPartition the topicPartition to resume.
+	 */
+	default void resumePartition(TopicPartition topicPartition) {
+		throw new UnsupportedOperationException("This container doesn't support resuming a partition");
+	}
+
+	/**
+	 * Whether or not this topic Partition pause has been requested.
+	 * @param topicPartition
+	 * @return true if pause has been requested
+	 * @since 2.7.0
+	 */
+	default boolean isPartitionPaused(TopicPartition topicPartition) {
+		throw new UnsupportedOperationException("This container doesn't support pausing a partition");
+	}
+
+	/**
 	 * Return true if {@link #pause()} has been called; the container might not have actually
 	 * paused yet.
 	 * @return true if pause has been requested.
@@ -150,5 +180,4 @@ public interface MessageListenerContainer extends SmartLifecycle {
 	default String getListenerId() {
 		throw new UnsupportedOperationException("This container does not support retrieving the listener id");
 	}
-
 }

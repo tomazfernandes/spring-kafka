@@ -18,6 +18,7 @@ package org.springframework.kafka.listener;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -105,6 +106,8 @@ public abstract class AbstractMessageListenerContainer<K, V>
 
 	private ApplicationContext applicationContext;
 
+	private final Map<TopicPartition, Boolean> pausedPartitions;
+
 	/**
 	 * Construct an instance with the provided factory and properties.
 	 * @param consumerFactory the factory.
@@ -145,6 +148,8 @@ public abstract class AbstractMessageListenerContainer<K, V>
 		if (this.containerProperties.getConsumerRebalanceListener() == null) {
 			this.containerProperties.setConsumerRebalanceListener(createSimpleLoggingConsumerRebalanceListener());
 		}
+
+		this.pausedPartitions = new HashMap<>();
 	}
 
 	@Override
@@ -231,6 +236,27 @@ public abstract class AbstractMessageListenerContainer<K, V>
 
 	protected boolean isPaused() {
 		return this.paused;
+	}
+
+	@Override
+	public boolean isPartitionPaused(TopicPartition topicPartition) {
+		synchronized (this.pausedPartitions) {
+			return this.pausedPartitions.computeIfAbsent(topicPartition, thisTopicPartition -> false);
+		}
+	}
+
+	@Override
+	public void pausePartition(TopicPartition topicPartition) {
+		synchronized (this.pausedPartitions) {
+			this.pausedPartitions.put(topicPartition, true);
+		}
+	}
+
+	@Override
+	public void resumePartition(TopicPartition topicPartition) {
+		synchronized (this.pausedPartitions) {
+			this.pausedPartitions.put(topicPartition, false);
+		}
 	}
 
 	@Override

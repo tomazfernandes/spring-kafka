@@ -287,6 +287,31 @@ public class ConcurrentMessageListenerContainer<K, V> extends AbstractMessageLis
 		}
 	}
 
+	public void pausePartition(TopicPartition topicPartition) {
+		synchronized (this.lifecycleMonitor) {
+			super.pausePartition(topicPartition);
+			this.containers
+					.stream()
+					.filter(container -> containsPartition(topicPartition, container))
+					.forEach(container -> container.pausePartition(topicPartition));
+		}
+	}
+
+	public void resumePartition(TopicPartition topicPartition) {
+		synchronized (this.lifecycleMonitor) {
+			super.resumePartition(topicPartition);
+			this.containers
+					.stream()
+					.filter(container -> containsPartition(topicPartition, container))
+					.forEach(container -> container.resumePartition(topicPartition));
+		}
+	}
+
+	private boolean containsPartition(TopicPartition topicPartition, KafkaMessageListenerContainer<K, V> container) {
+		Collection<TopicPartition> assignedPartitions = container.getAssignedPartitions();
+		return assignedPartitions != null && assignedPartitions.contains(topicPartition);
+	}
+
 	@Override
 	public String toString() {
 		return "ConcurrentMessageListenerContainer [concurrency=" + this.concurrency + ", beanName="
