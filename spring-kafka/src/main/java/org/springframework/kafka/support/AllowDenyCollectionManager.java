@@ -16,12 +16,12 @@
 
 package org.springframework.kafka.support;
 
-import org.springframework.util.Assert;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.function.Predicate;
+
+import org.springframework.util.Assert;
 
 /**
  * Class for managing Allow / Deny collections and its predicates.

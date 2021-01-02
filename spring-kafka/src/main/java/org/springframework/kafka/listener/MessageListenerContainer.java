@@ -103,8 +103,8 @@ public interface MessageListenerContainer extends SmartLifecycle {
 	/**
 	 * Pause this partition before the next poll(). This is a thread-safe operation, the
 	 * actual pause is processed by the consumer thread.
-	 * @since 2.7.0
 	 * @param topicPartition the topicPartition to pause.
+	 * @since 2.7.0
 	 */
 	default void pausePartition(TopicPartition topicPartition) {
 		throw new UnsupportedOperationException("This container doesn't support pausing a partition");
@@ -113,8 +113,8 @@ public interface MessageListenerContainer extends SmartLifecycle {
 	/**
 	 * Resume this partition before the next poll(). This is a thread-safe operation, the
 	 * actual pause is processed by the consumer thread.
-	 * @since 2.7.0
 	 * @param topicPartition the topicPartition to resume.
+	 * @since 2.7.0
 	 */
 	default void resumePartition(TopicPartition topicPartition) {
 		throw new UnsupportedOperationException("This container doesn't support resuming a partition");
@@ -122,7 +122,7 @@ public interface MessageListenerContainer extends SmartLifecycle {
 
 	/**
 	 * Whether or not this topic Partition pause has been requested.
-	 * @param topicPartition
+	 * @param topicPartition the topic partition to check
 	 * @return true if pause has been requested
 	 * @since 2.7.0
 	 */
