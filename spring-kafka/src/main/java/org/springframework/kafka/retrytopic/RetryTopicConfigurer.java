@@ -55,14 +55,26 @@ import org.springframework.util.ReflectionUtils;
  *
  * <p>To illustrate, if you have a "main-topic" topic, and wants a exponential backoff of 1000ms with a multiplier of 2 and 3 retry attempts,
  * it will create the main-topic-retry-1000, main-topic-retry-2000, main-topic-retry-4000 and main-topic-dlt topics.
- * Each record retried will have a back off timestamp header and, if consumption is attempted before that time, the partition consumption
- * is paused and a {@link org.springframework.kafka.listener.KafkaBackoffException} is thrown.
+ * The configuration can be achieved using a {@link RetryTopicConfigurerBuilder} to create one or more {@link RetryTopicConfigurer} beans,
+ * or by using the {@link org.springframework.kafka.annotation.RetryableTopic} annotation. More details on the usage below.
  *
- * <p>This logic is handled via a {@link org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter} that makes use of
- * a {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager}.
  *
- * <p>The {@link SeekToCurrentErrorHandler} and {@link DeadLetterPublishingRecoverer} then forwards the message to the next topic,
- * using a {@link org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicResolver} to know the next topic and the delay for it.
+ * <p>How it works:
+ *
+ * <p>If a message processing throws an exception, the configured {@link SeekToCurrentErrorHandler} and {@link DeadLetterPublishingRecoverer}
+ * forwards the message to the next topic, using a {@link org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicResolver}
+ * to know the next topic and the delay for it.
+ *
+ * <p>Each retried record has a back off timestamp header and, if consumption is attempted by the
+ * {@link org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter} before that time, the partition consumption is
+ * paused by a {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager} and a
+ * {@link org.springframework.kafka.listener.KafkaBackoffException} is thrown.
+ *
+ * <p>When the partition has been idle for the specified amount of time in the {@link org.springframework.kafka.listener.ContainerProperties#idlePartitionInterval}
+ * property, a {@link org.springframework.kafka.event.ListenerContainerPartitionIdleEvent} is published, which the {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager}
+ * listens to in order to check whether or not it should unpause the partition.
+ *
+ * <p>If, when consumption is resumed, the processing fails again, the message is forwarded to the next topic and so on, until it gets to the dlt.
  *
  * <p>Considering Kafka's partition ordering guarantees, and each topic having a fixed delay time, we know that the first
  * message consumed in a given retry topic partition will be the one with the earliest backoff timestamp for that partition, so by pausing the partition
