@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
-import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicContainerFactory;
+import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicPropertiesFactory;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.policy.MaxAttemptsRetryPolicy;
 
@@ -129,7 +129,7 @@ public @interface RetryableTopic {
 	 *
 	 * @return the retry topics' suffix.
 	 */
-	String retryTopicSuffix() default DestinationTopicContainerFactory.DestinationTopicSuffixes.DEFAULT_RETRY_SUFFIX;
+	String retryTopicSuffix() default DestinationTopicPropertiesFactory.DestinationTopicSuffixes.DEFAULT_RETRY_SUFFIX;
 
 	/**
 	 * The suffix that will be appended to the main topic in order to generate
@@ -137,5 +137,5 @@ public @interface RetryableTopic {
 	 *
 	 * @return the dlt suffix.
 	 */
-	String dltTopicSuffix() default DestinationTopicContainerFactory.DestinationTopicSuffixes.DEFAULT_DLT_SUFFIX;
+	String dltTopicSuffix() default DestinationTopicPropertiesFactory.DestinationTopicSuffixes.DEFAULT_DLT_SUFFIX;
 }

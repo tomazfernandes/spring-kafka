@@ -67,8 +67,10 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	private void pauseConsumptionAndThrow(Context context, Long timeToSleep) throws KafkaBackoffException {
 		TopicPartition topicPartition = context.getTopicPartition();
 		getListenerContainerFromContext(context).pausePartition(topicPartition);
-		this.backOffTimes.put(topicPartition, context);
-		throw new KafkaBackoffException(String.format("Partition %s from topic %s is not ready for consumption, backing off.", context.partition(), context.topic()), topicPartition, context.listenerId, context.dueTimestamp().format(DEFAULT_BACKOFF_TIMESTAMP_FORMATTER));
+		addBackoff(context, topicPartition);
+		throw new KafkaBackoffException(String.format("Partition %s from topic %s is not ready for consumption, " +
+				"backing off for approx. %s millis.", context.partition(), context.topic(), timeToSleep),
+				topicPartition, context.listenerId, context.dueTimestamp().format(DEFAULT_BACKOFF_TIMESTAMP_FORMATTER));
 	}
 
 	private MessageListenerContainer getListenerContainerFromContext(Context context) {
@@ -77,13 +79,31 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 
 	@Override
 	public void onApplicationEvent(ListenerContainerPartitionIdleEvent partitionIdleEvent) {
-		Context context = this.backOffTimes.get(partitionIdleEvent.getTopicPartition());
+		Context context = getBackoff(partitionIdleEvent);
 		if (context == null || System.currentTimeMillis() < getDueMillis(context)) {
 			return;
 		}
 		MessageListenerContainer container = getListenerContainerFromContext(context);
 		container.resumePartition(context.getTopicPartition());
-		this.backOffTimes.remove(context.getTopicPartition());
+		removeBackoff(context);
+	}
+
+	protected void addBackoff(Context context, TopicPartition topicPartition) {
+		synchronized (this.backOffTimes) {
+			this.backOffTimes.put(topicPartition, context);
+		}
+	}
+
+	protected Context getBackoff(ListenerContainerPartitionIdleEvent partitionIdleEvent) {
+		synchronized (this.backOffTimes) {
+			return this.backOffTimes.get(partitionIdleEvent.getTopicPartition());
+		}
+	}
+
+	protected void removeBackoff(Context context) {
+		synchronized (this.backOffTimes) {
+			this.backOffTimes.remove(context.getTopicPartition());
+		}
 	}
 
 	private long getDueMillis(Context context) {

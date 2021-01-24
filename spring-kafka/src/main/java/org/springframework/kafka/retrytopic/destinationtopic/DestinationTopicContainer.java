@@ -16,20 +16,16 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
+import org.jetbrains.annotations.NotNull;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
+
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 
 
 /**
@@ -44,46 +40,14 @@ import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
  * @since 2.7.0
  *
  */
-public class DestinationTopicContainer implements DestinationTopicProcessor, DestinationTopicResolver {
+public class DestinationTopicContainer implements DestinationTopicResolver, ApplicationListener<ContextRefreshedEvent> {
 
-	private static final Map<String, DestinationTopic> sourceDestinationMap;
-	private final Map<String, List<DestinationTopic>> destinationsByTopicMap;
+	private final Map<String, DestinationTopic> sourceDestinationMap;
+	private boolean containerClosed;
 
-	static {
-		sourceDestinationMap = new ConcurrentHashMap<>();
-	}
-
-	private final List<DestinationTopic.Properties> properties;
-	private List<String> allTopicsNames;
-
-	public DestinationTopicContainer(List<DestinationTopic.Properties> properties) {
-		this.properties = properties;
-		this.destinationsByTopicMap = new HashMap<>();
-	}
-
-	@Override
-	public void processDestinationProperties(Consumer<DestinationTopic.Properties> destinationPropertiesProcessor) {
-		this
-				.properties
-				.forEach(destinationPropertiesProcessor);
-	}
-
-	@Override
-	public void registerTopicDestination(String mainTopic, DestinationTopic destinationTopic) {
-		List<DestinationTopic> topicDestinations = this.destinationsByTopicMap.computeIfAbsent(mainTopic, this::newListWithMainTopic);
-		topicDestinations.add(destinationTopic);
-	}
-
-	@Override
-	public void processRegisteredDestinations(Consumer<Collection<String>> topicsConsumer) {
-		Map<String, DestinationTopic> sourceDestinationMapForThisInstance = this.destinationsByTopicMap
-				.values()
-				.stream()
-				.map(this::correlatePairSourceAndDestinationValues)
-				.reduce(this::concatenateMaps)
-				.orElseThrow(() -> new IllegalStateException("No destinations where provided for the Retry Topic configuration"));
-		addToSourceDestinationMap(sourceDestinationMapForThisInstance);
-		topicsConsumer.accept(getAllTopicsNames());
+	public DestinationTopicContainer() {
+		this.sourceDestinationMap = new ConcurrentHashMap<>();
+		this.containerClosed = false;
 	}
 
 	@Override
@@ -107,49 +71,36 @@ public class DestinationTopicContainer implements DestinationTopicProcessor, Des
 	}
 
 	private DestinationTopic getDestinationFor(String topic) {
+		return containerClosed
+				? doGetDestinationFor(topic)
+				: getDestinationTopicSynchronized(topic);
+	}
+
+	@NotNull
+	private DestinationTopic getDestinationTopicSynchronized(String topic) {
 		synchronized (sourceDestinationMap) {
-			return Objects.requireNonNull(sourceDestinationMap.get(topic), () -> "No destination found for topic: " + topic);
+			return doGetDestinationFor(topic);
 		}
 	}
 
-	private void addToSourceDestinationMap(Map<String, DestinationTopic> sourceDestinationMapToAdd) {
+	@NotNull
+	private DestinationTopic doGetDestinationFor(String topic) {
+		return Objects.requireNonNull(sourceDestinationMap.get(topic), () -> "No destination found for topic: " + topic);
+	}
+
+	@Override
+	public void addDestinations(Map<String, DestinationTopic> sourceDestinationMapToAdd) {
+		if (containerClosed) {
+			throw new IllegalStateException("Cannot add new destinations, "
+					+ DestinationTopicContainer.class.getSimpleName() + " is already closed.");
+		}
 		synchronized (sourceDestinationMap) {
 			sourceDestinationMap.putAll(sourceDestinationMapToAdd);
 		}
 	}
 
-	private List<DestinationTopic> newListWithMainTopic(String newTopic) {
-		List<DestinationTopic> newList = new ArrayList<>();
-		newList.add(new DestinationTopic(newTopic, new DestinationTopic.Properties(0, "", false)));
-		return newList;
-	}
-
-	private Map<String, DestinationTopic> concatenateMaps(Map<String, DestinationTopic> firstMap, Map<String, DestinationTopic> secondMap) {
-		firstMap.putAll(secondMap);
-		return firstMap;
-	}
-
-	private Map<String, DestinationTopic> correlatePairSourceAndDestinationValues(List<DestinationTopic> destinationList) {
-		return IntStream
-				.range(0, destinationList.size() - 1)
-				.boxed()
-				.collect(Collectors.toMap(index -> destinationList.get(index).getDestinationName(),
-						index -> getNextDestinationTopic(destinationList, index)));
-	}
-
-	private DestinationTopic getNextDestinationTopic(List<DestinationTopic> destinationList, int index) {
-		return destinationList.get(index + 1);
-	}
-
-	private List<String> getAllTopicsNames() {
-		if (this.allTopicsNames == null) {
-			this.allTopicsNames = this.destinationsByTopicMap
-					.values()
-					.stream()
-					.flatMap(Collection::stream)
-					.map(DestinationTopic::getDestinationName)
-					.collect(Collectors.toList());
-		}
-		return this.allTopicsNames;
+	@Override
+	public void onApplicationEvent(ContextRefreshedEvent event) {
+		this.containerClosed = true;
 	}
 }

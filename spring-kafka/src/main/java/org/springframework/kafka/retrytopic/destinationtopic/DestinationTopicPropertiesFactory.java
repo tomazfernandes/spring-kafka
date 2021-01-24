@@ -36,23 +36,19 @@ import org.springframework.util.StringUtils;
  * @see DestinationTopicSuffixes
  * @see BackOffValuesGenerator
  */
-public class DestinationTopicContainerFactory {
+public class DestinationTopicPropertiesFactory {
 
 	private final DestinationTopicSuffixes destinationTopicSuffixes;
 	private final List<Long> backOffValues;
 	private final List<DestinationTopic.Properties> destinationProperties;
 
-	public DestinationTopicContainerFactory(String retryTopicSuffix, String dltSuffix, int maxAttempts, BackOffPolicy backOffPolicy) {
+	public DestinationTopicPropertiesFactory(String retryTopicSuffix, String dltSuffix, int maxAttempts, BackOffPolicy backOffPolicy) {
 		this.destinationTopicSuffixes = new DestinationTopicSuffixes(retryTopicSuffix, dltSuffix);
 		this.backOffValues = new BackOffValuesGenerator(maxAttempts, backOffPolicy).generateValues();
 		this.destinationProperties = createProperties();
 	}
 
-	public DestinationTopicContainer createDestinationTopicContainer() {
-		return new DestinationTopicContainer(this.destinationProperties);
-	}
-
-	private List<DestinationTopic.Properties> createProperties() {
+	public List<DestinationTopic.Properties> createProperties() {
 		int maxAttempts = this.backOffValues.size();
 		return IntStream.rangeClosed(0, maxAttempts)
 				.mapToObj(index -> createRetryOrDltTopicSuffixes(maxAttempts, this.backOffValues, index, this.destinationTopicSuffixes))

@@ -1253,7 +1253,8 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 				if (now > lastReceive + this.containerProperties.getIdlePartitionEventInterval()
 						&& now > lastAlertAt + this.containerProperties.getIdlePartitionEventInterval()) {
 					this.wasIdlePartition.put(topicPartition, true);
-					publishIdlePartitionEvent(now - lastReceive, topicPartition, this.consumer, isPartitionPaused(topicPartition));
+					publishIdlePartitionEvent(now - lastReceive, topicPartition, this.consumer,
+							isPartitionPaused(topicPartition));
 					this.lastAlertPartition.put(topicPartition, now);
 					if (this.consumerSeekAwareListener != null) {
 						seekPartitions(Collections.singletonList(topicPartition), true);

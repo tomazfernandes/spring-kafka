@@ -16,20 +16,16 @@
 
 package org.springframework.kafka.retrytopic;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import org.apache.commons.logging.LogFactory;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -42,10 +38,18 @@ import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
 import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopic;
 import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicContainer;
 import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicProcessor;
-import org.springframework.kafka.support.AllowDenyCollectionManager;
 import org.springframework.kafka.support.Suffixer;
+import org.springframework.kafka.support.TopicPartitionOffset;
 import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
+
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 /**
@@ -55,7 +59,7 @@ import org.springframework.util.ReflectionUtils;
  *
  * <p>To illustrate, if you have a "main-topic" topic, and wants a exponential backoff of 1000ms with a multiplier of 2 and 3 retry attempts,
  * it will create the main-topic-retry-1000, main-topic-retry-2000, main-topic-retry-4000 and main-topic-dlt topics.
- * The configuration can be achieved using a {@link RetryTopicConfigurerBuilder} to create one or more {@link RetryTopicConfigurer} beans,
+ * The configuration can be achieved using a {@link RetryTopicConfigurationBuilder} to create one or more {@link RetryTopicConfigurer} beans,
  * or by using the {@link org.springframework.kafka.annotation.RetryableTopic} annotation. More details on the usage below.
  *
  *
@@ -146,7 +150,7 @@ import org.springframework.util.ReflectionUtils;
  *
  * <p>DLT Handling:
  *
- * <p>The DLT handler method can be provided through the {@link RetryTopicConfigurerBuilder#dltHandlerMethod(Class, String)} method,
+ * <p>The DLT handler method can be provided through the {@link RetryTopicConfigurationBuilder#dltHandlerMethod(Class, String)} method,
  * providing the class and method name that should handle the DLT topic. If a bean instance of this type is found in the {@link BeanFactory}
  * it is the instance used. If not an instance is created.
  *
@@ -183,7 +187,7 @@ import org.springframework.util.ReflectionUtils;
  * @author Tomaz Fernandes
  * @since 2.7.0
  *
- * @see RetryTopicConfigurerBuilder
+ * @see RetryTopicConfigurationBuilder
  * @see org.springframework.kafka.annotation.RetryableTopic
  * @see KafkaListener
  * @see org.springframework.retry.annotation.Backoff
@@ -204,87 +208,117 @@ public class RetryTopicConfigurer {
 	private final DestinationTopicProcessor destinationTopicProcessor;
 	private final ListenerContainerFactoryResolver containerFactoryResolver;
 	private final ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer;
-	private final KafkaTopicAutoCreationManager autoCreationManager;
-	private final EndpointHandlerMethod dltEndpointHandlerMethod;
-	private final AllowDenyCollectionManager<String> gatekeeper;
+	private final BeanFactory beanFactory;
 
-	private BeanFactory beanFactory; // Setup on endpointProcessing
-
-	RetryTopicConfigurer(EndpointHandlerMethod dltEndpointHandlerMethod,
-						AllowDenyCollectionManager<String> gatekeeper,
-						DestinationTopicProcessor destinationTopicProcessor,
-						ListenerContainerFactoryResolver containerFactoryResolver,
-						ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer,
-						KafkaTopicAutoCreationManager autoCreationManager) {
-		this.dltEndpointHandlerMethod = dltEndpointHandlerMethod != null ? dltEndpointHandlerMethod : DEFAULT_DLT_HANDLER;
-		this.gatekeeper = gatekeeper;
+	RetryTopicConfigurer(DestinationTopicProcessor destinationTopicProcessor,
+						 ListenerContainerFactoryResolver containerFactoryResolver,
+						 ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer,
+						 BeanFactory beanFactory) {
 		this.destinationTopicProcessor = destinationTopicProcessor;
 		this.containerFactoryResolver = containerFactoryResolver;
 		this.listenerContainerFactoryConfigurer = listenerContainerFactoryConfigurer;
-		this.autoCreationManager = autoCreationManager;
+		this.beanFactory = beanFactory;
 	}
 
 	/**
 	 * Entrypoint for creating and configuring the retry and dlt endpoints,
 	 * as well as the container factory that will the corresponding listenerContainer.
-	 *
-	 * @param endpointProcessor the endpoint and factory configurers that will be called at the end of the
+	 *  @param endpointProcessor the endpoint and factory configurers that will be called at the end of the
 	 *                           {@link org.springframework.kafka.annotation.KafkaListenerAnnotationBeanPostProcessor} processListener method.
 	 *                           As a side effect, the created destinations are registered at the {@link DestinationTopicContainer}
 	 * @param mainEndpoint the endpoint based on which retry and dlt endpoints are also created and processed.
+	 * @param configuration
 	 *
 	 */
-	public void processMainAndRetryListeners(EndpointProcessor endpointProcessor, MethodKafkaListenerEndpoint<?, ?> mainEndpoint) {
+	public void processMainAndRetryListeners(EndpointProcessor endpointProcessor,
+											 MethodKafkaListenerEndpoint<?, ?> mainEndpoint,
+											 RetryTopicConfiguration configuration) {
 		throwIfMultiMethodEndpoint(mainEndpoint); // TODO: Add support to MultiMethodEndpoint
-		configureMainEndpoint(mainEndpoint, endpointProcessor);
-		configureRetryAndDltEndpoints(mainEndpoint, endpointProcessor);
-		this.destinationTopicProcessor.processRegisteredDestinations(this.autoCreationManager::maybeCreateTopics);
+		DestinationTopicProcessor.Context context = new DestinationTopicProcessor.Context(configuration.getDestinationTopicProperties());
+		configureMainEndpoint(mainEndpoint, endpointProcessor, context, configuration);
+		configureRetryAndDltEndpoints(mainEndpoint, endpointProcessor, context, configuration);
+		this.destinationTopicProcessor.processRegisteredDestinations(topics ->
+				createNewTopicBeans(topics, configuration.forKafkaTopicAutoCreation()), context);
 	}
 
-	private void configureMainEndpoint(MethodKafkaListenerEndpoint<?, ?> mainEndpoint, EndpointProcessor endpointProcessor) {
+	private void configureMainEndpoint(MethodKafkaListenerEndpoint<?, ?> mainEndpoint,
+									   EndpointProcessor endpointProcessor,
+									   DestinationTopicProcessor.Context context,
+									   RetryTopicConfiguration configuration) {
 		EndpointProcessingCustomizerHolder holder =
-				new EndpointProcessingCustomizerHolder(endpoint -> endpoint, this::resolveAndConfigureFactoryForMainEndpoint);
+				new EndpointProcessingCustomizerHolder(endpoint -> endpoint,
+						endpoint -> resolveAndConfigureFactoryForMainEndpoint(endpoint, context, configuration));
 		endpointProcessor
 				.accept(mainEndpoint, holder);
 	}
 
-	private void configureRetryAndDltEndpoints(MethodKafkaListenerEndpoint<?, ?> mainEndpoint, EndpointProcessor endpointProcessor) {
-		EndpointHandlerMethod retryBeanMethod = createHandlerMethodWith(mainEndpoint.getBean(), mainEndpoint.getMethod());
+	private void configureRetryAndDltEndpoints(MethodKafkaListenerEndpoint<?, ?> mainEndpoint,
+											   EndpointProcessor endpointProcessor,
+											   DestinationTopicProcessor.Context context,
+											   RetryTopicConfiguration configuration) {
+		EndpointHandlerMethod retryBeanMethod = new EndpointHandlerMethod(mainEndpoint.getBean(), mainEndpoint.getMethod());
+		EndpointHandlerMethod dltHandlerMethod = configuration.getDltHandlerMethod();
 		this.destinationTopicProcessor
 				.processDestinationProperties(destinationTopicProperties ->
 						endpointProcessor.accept(new MethodKafkaListenerEndpoint<>(),
-								new EndpointProcessingCustomizerHolder(getEndpointCustomizerFunction(retryBeanMethod, destinationTopicProperties),
-										this::resolveAndConfigureFactoryForRetryEndpoint)));
+								new EndpointProcessingCustomizerHolder(
+										getEndpointCustomizerFunction(retryBeanMethod, dltHandlerMethod, destinationTopicProperties, context),
+										endpoint -> resolveAndConfigureFactoryForRetryEndpoint(endpoint, configuration))),
+						context);
 	}
 
-	public Function<MethodKafkaListenerEndpoint<?, ?>, MethodKafkaListenerEndpoint<?, ?>> getEndpointCustomizerFunction(EndpointHandlerMethod retryBeanMethod, DestinationTopic.Properties destinationTopicProperties) {
-		return new EndpointCustomizerFunctionFactory(destinationTopicProperties, getEndpointBeanMethod(destinationTopicProperties, retryBeanMethod),
-						this.beanFactory, endpointCustomizingContext -> createAndRegisterDestinationTopic(destinationTopicProperties, endpointCustomizingContext))
+	private void createNewTopicBeans( Collection<String> topics, RetryTopicConfiguration.TopicCreation config) {
+		if (!config.shouldCreateTopics()) return;
+		topics.forEach(topic ->
+				((DefaultListableBeanFactory)beanFactory)
+						.registerSingleton(topic + "-topicRegistrationBean",
+								new NewTopic(topic, config.getNumPartitions(), config.getReplicationFactor()))
+		);
+	}
+
+	private Function<MethodKafkaListenerEndpoint<?, ?>, MethodKafkaListenerEndpoint<?, ?>> getEndpointCustomizerFunction(
+			EndpointHandlerMethod retryBeanMethod,
+			RetryTopicConfigurer.EndpointHandlerMethod dltHandlerMethod,
+			DestinationTopic.Properties destinationTopicProperties,
+			DestinationTopicProcessor.Context context) {
+		return new EndpointCustomizerFunctionFactory(destinationTopicProperties,
+				getEndpointBeanMethod(destinationTopicProperties, retryBeanMethod, dltHandlerMethod),
+						this.beanFactory,
+				endpointCustomizingContext ->
+						createAndRegisterDestinationTopic(destinationTopicProperties, endpointCustomizingContext, context))
 				.createEndpointCustomizer();
 	}
 
-	private EndpointCustomizingContext createAndRegisterDestinationTopic(DestinationTopic.Properties destinationTopicProperties, EndpointCustomizingContext endpointCustomizingContext) {
+	private EndpointCustomizingContext createAndRegisterDestinationTopic(DestinationTopic.Properties destinationTopicProperties,
+																		 EndpointCustomizingContext endpointCustomizingContext,
+																		 DestinationTopicProcessor.Context context) {
 		DestinationTopic destinationTopic = new DestinationTopic(endpointCustomizingContext.getProcessedTopic(), destinationTopicProperties);
-		this.destinationTopicProcessor.registerTopicDestination(endpointCustomizingContext.getTopic(), destinationTopic);
+		this.destinationTopicProcessor.registerTopicDestination(endpointCustomizingContext.getTopic(), destinationTopic, context);
 		return endpointCustomizingContext;
 	}
 
-	private EndpointHandlerMethod getEndpointBeanMethod(DestinationTopic.Properties props, EndpointHandlerMethod retryBeanMethod) {
-		return props.isDltTopic() ? this.dltEndpointHandlerMethod : retryBeanMethod;
+	private EndpointHandlerMethod getEndpointBeanMethod(DestinationTopic.Properties props, EndpointHandlerMethod retryBeanMethod,
+														EndpointHandlerMethod dltEndpointHandlerMethod) {
+		return props.isDltTopic() ? getDltEndpointHandlerMethod(dltEndpointHandlerMethod) : retryBeanMethod;
 	}
 
-	private ConcurrentKafkaListenerContainerFactory<?, ?> resolveAndConfigureFactoryForMainEndpoint(KafkaListenerContainerFactory<?> providedFactory) {
+	private EndpointHandlerMethod getDltEndpointHandlerMethod(EndpointHandlerMethod dltEndpointHandlerMethod) {
+		return dltEndpointHandlerMethod != null ? dltEndpointHandlerMethod : DEFAULT_DLT_HANDLER;
+	}
+
+	private ConcurrentKafkaListenerContainerFactory<?, ?> resolveAndConfigureFactoryForMainEndpoint(KafkaListenerContainerFactory<?> providedFactory,
+																									DestinationTopicProcessor.Context context,
+																									RetryTopicConfiguration configuration) {
 		return this.listenerContainerFactoryConfigurer
-				.configure(this.containerFactoryResolver.resolveFactoryForMainEndpoint(providedFactory));
+				.configure(this.containerFactoryResolver.resolveFactoryForMainEndpoint(providedFactory,
+						configuration.getFactoryResolverConfig()), configuration.getDeadLetterProviderConfiguration());
 	}
 
-	private ConcurrentKafkaListenerContainerFactory<?, ?> resolveAndConfigureFactoryForRetryEndpoint(KafkaListenerContainerFactory<?> providedFactory) {
+	private ConcurrentKafkaListenerContainerFactory<?, ?> resolveAndConfigureFactoryForRetryEndpoint(KafkaListenerContainerFactory<?> providedFactory,
+																									 RetryTopicConfiguration configuration) {
 		return this.listenerContainerFactoryConfigurer
-				.configure(this.containerFactoryResolver.resolveFactoryForRetryEndpoint(providedFactory));
-	}
-
-	public boolean shouldHandleTopics(String[] topics) {
-		return this.gatekeeper.areAllowed(topics);
+				.configure(this.containerFactoryResolver.resolveFactoryForRetryEndpoint(providedFactory,
+						configuration.getFactoryResolverConfig()), configuration.getDeadLetterProviderConfiguration());
 	}
 
 	private void throwIfMultiMethodEndpoint(MethodKafkaListenerEndpoint<?, ?> mainEndpoint) {
@@ -301,17 +335,8 @@ public class RetryTopicConfigurer {
 		return new EndpointHandlerMethod(bean, method);
 	}
 
-	public static RetryTopicConfigurerBuilder builder() {
-		return new RetryTopicConfigurerBuilder();
-	}
-
-	RetryTopicConfigurer setBeanFactory(BeanFactory beanFactory) {
-		// TODO: Probably there's a better way to setup these dependencies.
-		this.beanFactory = beanFactory;
-		this.containerFactoryResolver.setBeanFactory(beanFactory);
-		this.listenerContainerFactoryConfigurer.setBeanFactory(beanFactory);
-		this.autoCreationManager.setBeanFactory(beanFactory);
-		return this;
+	public static RetryTopicConfigurationBuilder builder() {
+		return new RetryTopicConfigurationBuilder();
 	}
 
 	public interface EndpointProcessor extends BiConsumer<MethodKafkaListenerEndpoint<?, ?>, EndpointProcessingCustomizerHolder> {
@@ -331,7 +356,10 @@ public class RetryTopicConfigurer {
 		private final Function<MethodKafkaListenerEndpoint<?, ?>, MethodKafkaListenerEndpoint<?, ?>> endpointCustomizer;
 		private final Function<KafkaListenerContainerFactory<?>, KafkaListenerContainerFactory<?>> factoryCustomizer;
 
-		public EndpointProcessingCustomizerHolder(Function<MethodKafkaListenerEndpoint<?, ?>, MethodKafkaListenerEndpoint<?, ?>> endpointCustomizer, Function<KafkaListenerContainerFactory<?>, KafkaListenerContainerFactory<?>> factoryCustomizer) {
+		public EndpointProcessingCustomizerHolder(Function<MethodKafkaListenerEndpoint<?, ?>,
+															MethodKafkaListenerEndpoint<?, ?>> endpointCustomizer,
+												 	 			Function<KafkaListenerContainerFactory<?>,
+															 KafkaListenerContainerFactory<?>> factoryCustomizer) {
 			this.endpointCustomizer = endpointCustomizer;
 			this.factoryCustomizer = factoryCustomizer;
 		}
@@ -388,13 +416,27 @@ public class RetryTopicConfigurer {
 		}
 
 		private Collection<String> customizeTopics(Suffixer suffixer, MethodKafkaListenerEndpoint<?, ?> endpoint) {
-			return endpoint
-					.getTopics()
+			return getTopics(endpoint)
 					.stream()
 					.map(topic -> new EndpointCustomizingContext(topic, suffixer.maybeAddTo(topic)))
 					.map(this.endpointCustomizingContextListener)
 					.map(EndpointCustomizingContext::getProcessedTopic)
 					.collect(Collectors.toList());
+		}
+
+		@NotNull
+		private Collection<String> getTopics(MethodKafkaListenerEndpoint<?, ?> endpoint) {
+			Collection<String> topics = endpoint.getTopics();
+			if (topics == null || topics.isEmpty()) {
+				topics = Arrays.stream(endpoint.getTopicPartitionsToAssign())
+						.map(TopicPartitionOffset::getTopic)
+						.collect(Collectors.toList());
+			}
+
+			if (topics == null || topics.isEmpty()) {
+				throw new IllegalStateException("No topics where provided for RetryTopicConfiguration.");
+			}
+			return topics;
 		}
 	}
 
@@ -445,7 +487,10 @@ public class RetryTopicConfigurer {
 					this.bean = beanFactory.getBean(this.beanClass);
 				}
 				catch (NoSuchBeanDefinitionException e) {
-					this.bean = BeanUtils.instantiateClass(this.beanClass);
+					String beanName = this.beanClass.getSimpleName() + "-handlerMethod";
+					((BeanDefinitionRegistry) beanFactory).registerBeanDefinition(beanName,
+							new RootBeanDefinition(beanClass));
+					this.bean = beanFactory.getBean(beanName);
 				}
 			}
 			return this.bean;

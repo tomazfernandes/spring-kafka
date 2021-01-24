@@ -35,13 +35,13 @@ final public class AllowDenyCollectionManager<T>  {
 	private final Collection<T> denyList;
 	private final Collection<Predicate<T>> predicates;
 
-	private AllowDenyCollectionManager(Collection<T> allowList, Collection<T> denyList) {
+	public AllowDenyCollectionManager(Collection<T> allowList, Collection<T> denyList) {
 		this.allowList = allowList;
 		this.denyList = denyList;
 		this.predicates = Collections.singletonList(getDefaultPredicate(allowList, denyList));
 	}
 
-	private AllowDenyCollectionManager(Collection<T> allowList, Collection<T> denyList, Collection<Predicate<T>> predicates) {
+	public AllowDenyCollectionManager(Collection<T> allowList, Collection<T> denyList, Collection<Predicate<T>> predicates) {
 		Assert.notNull(allowList, () -> "AllowList cannot be null");
 		Assert.notNull(denyList, () -> "DenyList cannot be null");
 		Assert.notNull(predicates, () -> "Predicates cannot be null");

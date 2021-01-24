@@ -16,6 +16,8 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
+import java.util.Map;
+
 /**
  *
  * Contains the methods used by the {@link org.springframework.kafka.listener.DeadLetterPublishingRecoverer} to
@@ -30,4 +32,5 @@ public interface DestinationTopicResolver {
 	String resolveDltDestinationFor(String topic);
 	String resolveDestinationNextExecutionTime(String topic);
 
+	void addDestinations(Map<String, DestinationTopic> sourceDestinationMapToAdd);
 }

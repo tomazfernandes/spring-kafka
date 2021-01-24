@@ -17,6 +17,9 @@
 package org.springframework.kafka.retrytopic.destinationtopic;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -29,8 +32,17 @@ import java.util.function.Consumer;
  */
 public interface DestinationTopicProcessor {
 
-	void processDestinationProperties(Consumer<DestinationTopic.Properties> destinationPropertiesProcessor);
-	void registerTopicDestination(String mainTopic, DestinationTopic destinationTopic);
-	void processRegisteredDestinations(Consumer<Collection<String>> topicsConsumer);
+	void processDestinationProperties(Consumer<DestinationTopic.Properties> destinationPropertiesProcessor, Context context);
+	void registerTopicDestination(String mainTopic, DestinationTopic destinationTopic, Context context);
+	void processRegisteredDestinations(Consumer<Collection<String>> topicsConsumer, Context context);
 
+	class Context {
+		protected final Map<String, List<DestinationTopic>> destinationsByTopicMap;
+		protected final List<DestinationTopic.Properties> properties;
+
+		public Context(List<DestinationTopic.Properties> properties) {
+			this.destinationsByTopicMap = new HashMap<>();
+			this.properties = properties;
+		}
+	}
 }

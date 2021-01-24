@@ -18,13 +18,11 @@ package org.springframework.kafka.retrytopic;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.Map;
 
 import org.apache.commons.logging.LogFactory;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanInitializationException;
-import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.expression.BeanFactoryResolver;
@@ -36,7 +34,6 @@ import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.adapter.AdapterUtils;
-import org.springframework.lang.Nullable;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.backoff.ExponentialRandomBackOffPolicy;
@@ -67,12 +64,12 @@ import org.springframework.util.StringUtils;
  * @see DltHandler
  *
  */
-public class RetryTopicConfigurerProvider {
+public class RetryableTopicAnnotationProcessor {
 
-	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(RetryTopicConfigurerProvider.class));
+	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(RetryableTopicAnnotationProcessor.class));
 	private static final SpelExpressionParser PARSER;
 	private static final String DEFAULT_KAFKA_TEMPLATE_BEAN_NAME = "retryKafkaTemplate";
-	private static final RetryTopicConfigurer NO_INSTANCE_TO_PROVIDE = null;
+	private static final RetryTopicConfiguration NO_CONFIGURATION = null;
 	private static final BeanFactory NO_SUITABLE_FACTORY_INSTANCE = null;
 	private final BeanFactory beanFactory;
 
@@ -80,39 +77,11 @@ public class RetryTopicConfigurerProvider {
 		PARSER = new SpelExpressionParser();
 	}
 
-	public RetryTopicConfigurerProvider(BeanFactory beanFactory) {
+	public RetryableTopicAnnotationProcessor(BeanFactory beanFactory) {
 		this.beanFactory = beanFactory;
 	}
 
-	@Nullable
-	public RetryTopicConfigurer maybeGet(String[] topics, Method method, Object bean) {
-		RetryableTopic annotation = AnnotationUtils.findAnnotation(method, RetryableTopic.class); // TODO: Enable class-level annotations
-		return annotation != null
-				? buildFromAnnotation(topics, method, annotation, bean)
-				: maybeGetFromBeanFactory(topics);
-	}
-
-	public static RetryTopicConfigurerProvider create(BeanFactory beanFactory) {
-		return new RetryTopicConfigurerProvider(beanFactory);
-	}
-
-	private RetryTopicConfigurer maybeGetFromBeanFactory(String[] topics) {
-		if (this.beanFactory == null || !ListableBeanFactory.class.isAssignableFrom(this.beanFactory.getClass())) {
-			logger.warn("No ListableBeanFactory found, skipping RetryTopic configuration.");
-			return NO_INSTANCE_TO_PROVIDE;
-		}
-
-		Map<String, RetryTopicConfigurer> retryTopicProcessors = ((ListableBeanFactory) this.beanFactory).getBeansOfType(RetryTopicConfigurer.class);
-		return retryTopicProcessors
-				.values()
-				.stream()
-				.filter(topicProcessor -> topicProcessor.shouldHandleTopics(topics))
-				.map(topicProcessor -> topicProcessor.setBeanFactory(this.beanFactory))
-				.findFirst()
-				.orElse(NO_INSTANCE_TO_PROVIDE);
-	}
-
-	public RetryTopicConfigurer buildFromAnnotation(String[] topics, Method method, RetryableTopic annotation, Object bean) {
+	public RetryTopicConfiguration processAnnotation(String[] topics, Method method, RetryableTopic annotation, Object bean) {
 		return RetryTopicConfigurer.builder()
 				.maxAttempts(annotation.attempts())
 				.customBackoff(createBackoffFromAnnotation(annotation.backoff(), this.beanFactory))
@@ -125,8 +94,7 @@ public class RetryTopicConfigurerProvider {
 				.retryOn(Arrays.asList(annotation.include()))
 				.notRetryOn(Arrays.asList(annotation.exclude()))
 				.traversingCauses(annotation.traversingCauses())
-				.create(getKafkaTemplate(annotation.kafkaTemplate(), topics))
-				.setBeanFactory(this.beanFactory);
+				.create(getKafkaTemplate(annotation.kafkaTemplate(), topics));
 	}
 
 	private SleepingBackOffPolicy<?> createBackoffFromAnnotation(Backoff backoff, BeanFactory beanFactory) {
