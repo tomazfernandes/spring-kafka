@@ -27,6 +27,7 @@ import org.springframework.kafka.listener.AcknowledgingConsumerAwareMessageListe
 import org.springframework.kafka.listener.KafkaBackoffException;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.ListenerType;
+import org.springframework.kafka.retrytopic.RetryTopicHeaders;
 import org.springframework.kafka.support.Acknowledgment;
 
 
@@ -49,20 +50,15 @@ public class KafkaBackoffAwareMessageListenerAdapter<K, V> extends AbstractDeleg
 	private final String backoffTimestampHeader;
 	private final KafkaConsumerBackoffManager kafkaConsumerBackoffManager;
 
-	/**
-	 * The default kafka header for the timestamp.
-	 */
-	public static final String DEFAULT_HEADER_BACKOFF_TIMESTAMP = "retry_topic-backoff-timestamp";
-
-	public KafkaBackoffAwareMessageListenerAdapter(AcknowledgingConsumerAwareMessageListener<K, V> adapter, KafkaConsumerBackoffManager kafkaConsumerBackoffManager, String listenerId, String backoffTimestampHeader) {
-		super(adapter);
+	public KafkaBackoffAwareMessageListenerAdapter(AcknowledgingConsumerAwareMessageListener<K, V> delegate, KafkaConsumerBackoffManager kafkaConsumerBackoffManager, String listenerId, String backoffTimestampHeader) {
+		super(delegate);
 		this.listenerId = listenerId;
 		this.kafkaConsumerBackoffManager = kafkaConsumerBackoffManager;
-		this.backoffTimestampHeader = backoffTimestampHeader != null ? backoffTimestampHeader : DEFAULT_HEADER_BACKOFF_TIMESTAMP;
+		this.backoffTimestampHeader = backoffTimestampHeader;
 	}
 
 	public KafkaBackoffAwareMessageListenerAdapter(AcknowledgingConsumerAwareMessageListener<K, V> adapter, KafkaConsumerBackoffManager kafkaConsumerBackoffManager, String listenerId) {
-		this(adapter, kafkaConsumerBackoffManager, listenerId, null);
+		this(adapter, kafkaConsumerBackoffManager, listenerId, RetryTopicHeaders.DEFAULT_HEADER_BACKOFF_TIMESTAMP);
 	}
 
 	@Override
@@ -72,7 +68,7 @@ public class KafkaBackoffAwareMessageListenerAdapter<K, V> extends AbstractDeleg
 
 	@Override
 	public void onMessage(ConsumerRecord<K, V> data, Acknowledgment ack, Consumer<?, ?> consumer) throws KafkaBackoffException {
-		getBackoffTimestamp(data)
+		maybeGetBackoffTimestamp(data)
 				.ifPresent(timestamp -> this.kafkaConsumerBackoffManager.maybeBackoff(createContext(data, timestamp)));
 		super.getDelegate().onMessage(data, ack, consumer);
 		ack.acknowledge();
@@ -82,10 +78,10 @@ public class KafkaBackoffAwareMessageListenerAdapter<K, V> extends AbstractDeleg
 		return this.kafkaConsumerBackoffManager.createContext(timestamp, this.listenerId, new TopicPartition(data.topic(), data.partition()));
 	}
 
-	private <V, K> Optional<LocalDateTime> getBackoffTimestamp(ConsumerRecord<K, V> data) {
+	private <V, K> Optional<LocalDateTime> maybeGetBackoffTimestamp(ConsumerRecord<K, V> data) {
 		return Optional
 				.ofNullable(data.headers().lastHeader(this.backoffTimestampHeader))
 				.map(timestampHeader -> new String(timestampHeader.value()))
-				.map(timestamp -> LocalDateTime.parse(timestamp, KafkaConsumerBackoffManager.DEFAULT_BACKOFF_TIMESTAMP_FORMATTER));
+				.map(timestamp -> LocalDateTime.parse(timestamp, RetryTopicHeaders.DEFAULT_BACKOFF_TIMESTAMP_HEADER_FORMATTER));
 	}
 }

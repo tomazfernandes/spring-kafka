@@ -38,7 +38,6 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.backoff.ExponentialRandomBackOffPolicy;
 import org.springframework.retry.backoff.FixedBackOffPolicy;
-import org.springframework.retry.backoff.Sleeper;
 import org.springframework.retry.backoff.SleepingBackOffPolicy;
 import org.springframework.retry.backoff.UniformRandomBackOffPolicy;
 import org.springframework.util.Assert;
@@ -68,7 +67,6 @@ public class RetryableTopicAnnotationProcessor {
 
 	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(RetryableTopicAnnotationProcessor.class));
 	private static final SpelExpressionParser PARSER;
-	private static final String DEFAULT_KAFKA_TEMPLATE_BEAN_NAME = "retryKafkaTemplate";
 	private static final RetryTopicConfiguration NO_CONFIGURATION = null;
 	private static final BeanFactory NO_SUITABLE_FACTORY_INSTANCE = null;
 	private final BeanFactory beanFactory;
@@ -94,15 +92,16 @@ public class RetryableTopicAnnotationProcessor {
 				.retryOn(Arrays.asList(annotation.include()))
 				.notRetryOn(Arrays.asList(annotation.exclude()))
 				.traversingCauses(annotation.traversingCauses())
+				.useSameTopicForFixedDelays(annotation.fixedDelayTopicStrategy())
+				.dltProcessingFailureStrategy(annotation.dltProcessingFailureStrategy())
 				.create(getKafkaTemplate(annotation.kafkaTemplate(), topics));
 	}
 
 	private SleepingBackOffPolicy<?> createBackoffFromAnnotation(Backoff backoff, BeanFactory beanFactory) {
-		Sleeper sleeper = BackOffValuesGenerator.createRetainerSleeper();
 		StandardEvaluationContext evaluationContext = new StandardEvaluationContext();
 		evaluationContext.setBeanResolver(new BeanFactoryResolver(beanFactory));
 
-		// Yup, just copied the code from Spring Retry :)
+		// Code from Spring Retry
 		long min = backoff.delay() == 0 ? backoff.value() : backoff.delay();
 		if (StringUtils.hasText(backoff.delayExpression())) {
 			min = PARSER.parseExpression(resolve(backoff.delayExpression(), beanFactory), AdapterUtils.PARSER_CONTEXT)
@@ -126,19 +125,16 @@ public class RetryableTopicAnnotationProcessor {
 			policy.setInitialInterval(min);
 			policy.setMultiplier(multiplier);
 			policy.setMaxInterval(max > min ? max : ExponentialBackOffPolicy.DEFAULT_MAX_INTERVAL);
-			policy.setSleeper(sleeper);
 			return policy;
 		}
 		if (max > min) {
 			UniformRandomBackOffPolicy policy = new UniformRandomBackOffPolicy();
 			policy.setMinBackOffPeriod(min);
 			policy.setMaxBackOffPeriod(max);
-			policy.setSleeper(sleeper);
 			return policy;
 		}
 		FixedBackOffPolicy policy = new FixedBackOffPolicy();
 		policy.setBackOffPeriod(min);
-		policy.setSleeper(sleeper);
 		return policy;
 	}
 
@@ -170,7 +166,7 @@ public class RetryableTopicAnnotationProcessor {
 			}
 		}
 		try {
-			return this.beanFactory.getBean(DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class);
+			return this.beanFactory.getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class);
 		}
 		catch (NoSuchBeanDefinitionException ex) {
 			throw new BeanInitializationException("Could not find a KafkaTemplate to configure the retry topics.", ex);

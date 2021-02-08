@@ -51,20 +51,24 @@ public class BackOffValuesGenerator {
 	 */
 	public static final int NOT_SET = -1;
 
-	private final int maxAttempts;
+	private final int numberOfvaluesToCreate;
 	private final BackOffPolicy backOffPolicy;
 
 	public BackOffValuesGenerator(int providedMaxAttempts, BackOffPolicy providedBackOffPolicy) {
-		this.maxAttempts = providedMaxAttempts != NOT_SET ? providedMaxAttempts : DEFAULT_MAX_ATTEMPTS;
+		this.numberOfvaluesToCreate = getMaxAttemps(providedMaxAttempts) - 1;
 		BackOffPolicy backOffPolicy = providedBackOffPolicy != null ? providedBackOffPolicy : DEFAULT_BACKOFF_POLICY;
 		checkBackOffPolicyTipe(backOffPolicy);
 		this.backOffPolicy = backOffPolicy;
 	}
 
+	public int getMaxAttemps(int providedMaxAttempts) {
+		return providedMaxAttempts != NOT_SET ? providedMaxAttempts : DEFAULT_MAX_ATTEMPTS;
+	}
+
 	public List<Long> generateValues() {
 		return NoBackOffPolicy.class.isAssignableFrom(this.backOffPolicy.getClass())
-				? generateFromNoBackOffPolicy(this.maxAttempts)
-				: generateFromSleepingBackOffPolicy(this.maxAttempts, this.backOffPolicy);
+				? generateFromNoBackOffPolicy(this.numberOfvaluesToCreate)
+				: generateFromSleepingBackOffPolicy(this.numberOfvaluesToCreate, this.backOffPolicy);
 	}
 
 	private void checkBackOffPolicyTipe(BackOffPolicy providedBackOffPolicy) {
@@ -90,10 +94,6 @@ public class BackOffValuesGenerator {
 				.range(0, maxAttempts)
 				.mapToObj(index -> 0L)
 				.collect(Collectors.toList());
-	}
-
-	public static Sleeper createRetainerSleeper() {
-		return new BackoffRetainerSleeper();
 	}
 
 	/**

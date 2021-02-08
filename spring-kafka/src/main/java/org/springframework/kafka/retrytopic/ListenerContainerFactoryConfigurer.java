@@ -43,36 +43,54 @@ public class ListenerContainerFactoryConfigurer {
 
 	private final static String INTERNAL_KAFKA_CONSUMER_BACKOFF_BEAN_NAME = "kafkaconsumerbackoff-internal";
 	private final static long DEFAULT_IDLE_PARTITION_EVENT_INTERVAL = 1000L;
-	private final DeadLetterPublishingRecovererProvider deadLetterPublishingRecovererProvider;
+	private final DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory;
 	private Consumer<ConcurrentMessageListenerContainer<?, ?>> containerCustomizer = container -> {};
+	private Consumer<ErrorHandler> errorHandlerCustomizer = errorHandler -> {};
 
-	ListenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager, DeadLetterPublishingRecovererProvider deadLetterPublishingRecovererProvider) {
+	ListenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager, DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory) {
 		this.kafkaConsumerBackoffManager = kafkaConsumerBackoffManager;
-		this.deadLetterPublishingRecovererProvider = deadLetterPublishingRecovererProvider;
+		this.deadLetterPublishingRecovererFactory = deadLetterPublishingRecovererFactory;
 	}
 
-	ConcurrentKafkaListenerContainerFactory<?, ?> configure(ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, DeadLetterPublishingRecovererProvider.Configuration configuration) {
-		if (configuredFactoriesCache.contains(containerFactory)) {
+	ConcurrentKafkaListenerContainerFactory<?, ?> configure(ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, DeadLetterPublishingRecovererFactory.Configuration configuration) {
+		if (existsInCache(containerFactory)) {
 			return containerFactory;
 		}
 		containerFactory.setContainerCustomizer(container -> setupBackoffAwareMessageListenerAdapter(container));
 		containerFactory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
-		containerFactory.setErrorHandler(createErrorHandler(this.deadLetterPublishingRecovererProvider.create(configuration)));
-		configuredFactoriesCache.add(containerFactory);
+		containerFactory.setErrorHandler(createErrorHandler(this.deadLetterPublishingRecovererFactory.create(configuration)));
+		addToFactoriesCache(containerFactory);
 		return containerFactory;
 	}
 
-	protected ErrorHandler createErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
-		SeekToCurrentErrorHandler errorHandler = new SeekToCurrentErrorHandler(deadLetterPublishingRecoverer, new FixedBackOff(0, 0));
-		errorHandler.setCommitRecovered(true);
-		return errorHandler;
+	private boolean existsInCache(ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory) {
+		synchronized (configuredFactoriesCache) {
+			return configuredFactoriesCache.contains(containerFactory);
+		}
 	}
 
-	public void addContainerCustomizer(Consumer<ConcurrentMessageListenerContainer<?, ?>> containerCustomizer) {
+	private void addToFactoriesCache(ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory) {
+		synchronized (configuredFactoriesCache) {
+			configuredFactoriesCache.add(containerFactory);
+		}
+	}
+
+	public void setContainerCustomizer(Consumer<ConcurrentMessageListenerContainer<?, ?>> containerCustomizer) {
 		this.containerCustomizer = containerCustomizer;
 	}
 
-	protected void setupBackoffAwareMessageListenerAdapter(ConcurrentMessageListenerContainer<?, ?> container) {
+	public void setErrorHandlerCustomizer(Consumer<ErrorHandler> errorHandlerCustomizer) {
+		this.errorHandlerCustomizer = errorHandlerCustomizer;
+	}
+
+	private ErrorHandler createErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
+		SeekToCurrentErrorHandler errorHandler = new SeekToCurrentErrorHandler(deadLetterPublishingRecoverer, new FixedBackOff(0, 0));
+		errorHandler.setCommitRecovered(true);
+		errorHandlerCustomizer.accept(errorHandler);
+		return errorHandler;
+	}
+
+	private void setupBackoffAwareMessageListenerAdapter(ConcurrentMessageListenerContainer<?, ?> container) {
 		AcknowledgingConsumerAwareMessageListener<?, ?> listener = checkAndCast(container.getContainerProperties().getMessageListener(),
 				AcknowledgingConsumerAwareMessageListener.class);
 		if (container.getContainerProperties().getIdlePartitionEventInterval() == null) {

@@ -2,7 +2,6 @@ package org.springframework.kafka.retrytopic.destinationtopic;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -15,6 +14,7 @@ import java.util.stream.IntStream;
  */
 public class DefaultDestinationTopicProcessor implements DestinationTopicProcessor {
 
+	private static final String NO_OPS_SUFFIX = "-noOps";
 	private final DestinationTopicResolver destinationTopicResolver;
 
 	public DefaultDestinationTopicProcessor(DestinationTopicResolver destinationTopicResolver) {
@@ -25,52 +25,53 @@ public class DefaultDestinationTopicProcessor implements DestinationTopicProcess
 	public void processDestinationProperties(Consumer<DestinationTopic.Properties> destinationPropertiesProcessor, Context context) {
 		context
 				.properties
+				.stream()
 				.forEach(destinationPropertiesProcessor);
 	}
 
 	@Override
-	public void registerTopicDestination(String mainTopic, DestinationTopic destinationTopic, Context context) {
-		List<DestinationTopic> topicDestinations = context.destinationsByTopicMap.computeIfAbsent(mainTopic, this::newListWithMainTopic);
-		topicDestinations.add(destinationTopic);
+	public void registerDestinationTopic(String mainTopicName, String destinationTopicName,
+										 DestinationTopic.Properties destinationTopicProperties, Context context) {
+		List<DestinationTopic> topicDestinations = context.destinationsByTopicMap
+				.computeIfAbsent(mainTopicName, newTopic -> new ArrayList<>());
+		topicDestinations.add(new DestinationTopic(destinationTopicName, destinationTopicProperties));
 	}
 
 	@Override
-	public void processRegisteredDestinations(Consumer<Collection<String>> topicsConsumer, Context context) {
-		Map<String, DestinationTopic> sourceDestinationMapForThisInstance = context.destinationsByTopicMap
+	public void processRegisteredDestinations(Consumer<Collection<String>> topicsCallback, Context context) {
+		Map<String, DestinationTopicResolver.DestinationsHolder> sourceDestinationMapForThisInstance = context.destinationsByTopicMap
 				.values()
 				.stream()
 				.map(this::correlatePairSourceAndDestinationValues)
 				.reduce(this::concatenateMaps)
-				.orElse(Collections.emptyMap());
-		//.orElseThrow(() -> new IllegalStateException("No destinations where provided for the Retry Topic configuration"));
+				.orElseThrow(() -> new IllegalStateException("No destinations where provided for the Retry Topic configuration"));
 		destinationTopicResolver.addDestinations(sourceDestinationMapForThisInstance);
-		topicsConsumer.accept(getAllTopicsNames(context));
+		topicsCallback.accept(getAllTopicsNamesForThis(context));
 	}
 
-	private List<DestinationTopic> newListWithMainTopic(String newTopic) {
-		List<DestinationTopic> newList = new ArrayList<>();
-		newList.add(new DestinationTopic(newTopic, new DestinationTopic.Properties(0, "", false)));
-		return newList;
-	}
-
-	private Map<String, DestinationTopic> concatenateMaps(Map<String, DestinationTopic> firstMap, Map<String, DestinationTopic> secondMap) {
+	private Map<String, DestinationTopicResolver.DestinationsHolder> concatenateMaps(Map<String, DestinationTopicResolver.DestinationsHolder> firstMap,
+																					 Map<String, DestinationTopicResolver.DestinationsHolder> secondMap) {
 		firstMap.putAll(secondMap);
 		return firstMap;
 	}
 
-	private Map<String, DestinationTopic> correlatePairSourceAndDestinationValues(List<DestinationTopic> destinationList) {
+	private Map<String, DestinationTopicResolver.DestinationsHolder> correlatePairSourceAndDestinationValues(List<DestinationTopic> destinationList) {
 		return IntStream
-				.range(0, destinationList.size() - 1)
+				.range(0, destinationList.size())
 				.boxed()
 				.collect(Collectors.toMap(index -> destinationList.get(index).getDestinationName(),
-						index -> getNextDestinationTopic(destinationList, index)));
+						index -> DestinationTopicResolver.holderFor(destinationList.get(index),
+								getNextDestinationTopic(destinationList, index))));
 	}
 
 	private DestinationTopic getNextDestinationTopic(List<DestinationTopic> destinationList, int index) {
-		return destinationList.get(index + 1);
+		return index != destinationList.size() - 1
+				? destinationList.get(index + 1)
+				: new DestinationTopic(destinationList.get(index).getDestinationName() + NO_OPS_SUFFIX,
+				destinationList.get(index), NO_OPS_SUFFIX, DestinationTopic.Type.NO_OPS);
 	}
 
-	private List<String> getAllTopicsNames(Context context) {
+	private List<String> getAllTopicsNamesForThis(Context context) {
 		return context.destinationsByTopicMap
 				.values()
 				.stream()

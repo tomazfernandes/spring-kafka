@@ -16,15 +16,18 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
-import org.jetbrains.annotations.NotNull;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
+import org.springframework.kafka.retrytopic.RetryTopicHeaders;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 
@@ -42,61 +45,91 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DestinationTopicContainer implements DestinationTopicResolver, ApplicationListener<ContextRefreshedEvent> {
 
-	private final Map<String, DestinationTopic> sourceDestinationMap;
+	private final Map<String, DestinationsHolder> destinationsHolderMap;
 	private boolean containerClosed;
+	private final Clock clock;
 
-	public DestinationTopicContainer() {
-		this.sourceDestinationMap = new ConcurrentHashMap<>();
+	public DestinationTopicContainer(Clock clock) {
+		this.clock = clock;
+		this.destinationsHolderMap = new ConcurrentHashMap<>();
 		this.containerClosed = false;
 	}
 
 	@Override
-	public String resolveDestinationNextExecutionTime(String topic) {
-		return LocalDateTime.now()
-				.plus(getDestinationFor(topic).getDestinationDelay(), ChronoUnit.MILLIS)
-				.format(KafkaConsumerBackoffManager.DEFAULT_BACKOFF_TIMESTAMP_FORMATTER);
+	public DestinationTopic resolveNextDestination(String topic, Integer attempt, Exception e) {
+		DestinationsHolder destinationsHolder = getDestinationHolderFor(topic);
+		return destinationsHolder.getSourceDestination().isDltTopic()
+				? handleDltProcessingFailure(destinationsHolder)
+				: destinationsHolder.getSourceDestination().shouldRetryOn(attempt, e)
+					? resolveRetryDestination(destinationsHolder)
+					: resolveDltDestination(topic);
+	}
+
+	private DestinationTopic handleDltProcessingFailure(DestinationsHolder destinationsHolder) {
+		return destinationsHolder.getSourceDestination().isAlwaysRetryOnDltFailure()
+				? destinationsHolder.getSourceDestination()
+				: destinationsHolder.getNextDestination();
+	}
+
+	private DestinationTopic resolveRetryDestination(DestinationsHolder destinationsHolder) {
+		return destinationsHolder.getSourceDestination().isSingleTopicRetry()
+				? destinationsHolder.getSourceDestination()
+				: destinationsHolder.getNextDestination();
 	}
 
 	@Override
-	public String resolveDestinationFor(String topic) {
-		return getDestinationFor(topic).getDestinationName();
+	public String resolveDestinationNextExecutionTime(String topic, Integer attempt, Exception e) {
+		return LocalDateTime.now(clock)
+				.plus(resolveNextDestination(topic, attempt, e).getDestinationDelay(), ChronoUnit.MILLIS)
+				.format(RetryTopicHeaders.DEFAULT_BACKOFF_TIMESTAMP_HEADER_FORMATTER);
 	}
 
-	@Override
-	public String resolveDltDestinationFor(String topic) {
+	private DestinationTopic resolveDltDestination(String topic) {
 		DestinationTopic destination = getDestinationFor(topic);
 		return destination.isDltTopic()
-				? destination.getDestinationName()
-				: resolveDltDestinationFor(destination.getDestinationName());
+				? destination
+				: resolveDltDestination(destination.getDestinationName());
 	}
 
 	private DestinationTopic getDestinationFor(String topic) {
+		return getDestinationHolderFor(topic).getNextDestination();
+	}
+
+	private DestinationsHolder getDestinationHolderFor(String topic) {
 		return containerClosed
 				? doGetDestinationFor(topic)
 				: getDestinationTopicSynchronized(topic);
 	}
 
-	@NotNull
-	private DestinationTopic getDestinationTopicSynchronized(String topic) {
-		synchronized (sourceDestinationMap) {
+	private DestinationsHolder getDestinationTopicSynchronized(String topic) {
+		synchronized (destinationsHolderMap) {
 			return doGetDestinationFor(topic);
 		}
 	}
 
-	@NotNull
-	private DestinationTopic doGetDestinationFor(String topic) {
-		return Objects.requireNonNull(sourceDestinationMap.get(topic), () -> "No destination found for topic: " + topic);
+	private DestinationsHolder doGetDestinationFor(String topic) {
+		return Objects.requireNonNull(destinationsHolderMap.get(topic),
+				() -> "No destination found for topic: " + topic);
+	}
+
+	private Optional<DestinationsHolder> maybeGetDestinationFor(String topic) {
+		return Optional.ofNullable(destinationsHolderMap.get(topic));
 	}
 
 	@Override
-	public void addDestinations(Map<String, DestinationTopic> sourceDestinationMapToAdd) {
+	public void addDestinations(Map<String, DestinationTopicResolver.DestinationsHolder> sourceDestinationMapToAdd) {
 		if (containerClosed) {
 			throw new IllegalStateException("Cannot add new destinations, "
 					+ DestinationTopicContainer.class.getSimpleName() + " is already closed.");
 		}
-		synchronized (sourceDestinationMap) {
-			sourceDestinationMap.putAll(sourceDestinationMapToAdd);
+		synchronized (destinationsHolderMap) {
+			destinationsHolderMap.putAll(sourceDestinationMapToAdd);
 		}
+	}
+
+	@Override
+	public KafkaOperations<?, ?> getKafkaOperationsFor(String topic) {
+		return getDestinationFor(topic).getKafkaOperations();
 	}
 
 	@Override

@@ -16,6 +16,12 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
+import org.springframework.kafka.core.KafkaOperations;
+import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
+
+import java.util.Objects;
+import java.util.function.BiPredicate;
+
 /**
  *
  * This class represents a Destination Topic to which messages can be forwarded, such as retry topics and dlt.
@@ -35,39 +41,129 @@ public class DestinationTopic {
 		this.properties = properties;
 	}
 
-	public Long getDestinationDelay() {
-		return this.properties.delay();
+	public DestinationTopic(String destinationName, DestinationTopic sourceDestinationtopic, String suffix, Type type) {
+		this.destinationName = destinationName;
+		this.properties = new Properties(sourceDestinationtopic.properties, suffix, type);
 	}
 
+	public Long getDestinationDelay() {
+		return this.properties.delayMs;
+	}
+
+	public Integer getDestinationPartitions() {
+		return this.properties.numPartitions;
+	}
+
+
+	public boolean isAlwaysRetryOnDltFailure() {
+		return RetryTopicConfiguration.DltProcessingFailureStrategy.ALWAYS_RETRY
+				.equals(properties.dltProcessingFailureStrategy);
+	}
 	public boolean isDltTopic() {
-		return this.properties.isDltTopic();
+		return Type.DLT.equals(properties.type);
+	}
+
+	public boolean isNoOpsTopic() {
+		return Type.NO_OPS.equals(properties.type);
+	}
+
+	public boolean isSingleTopicRetry() {
+		return Type.SINGLE_TOPIC_RETRY.equals(properties.type);
+	}
+
+	public boolean isMainTopic() {
+		return Type.MAIN.equals(properties.type);
 	}
 
 	public String getDestinationName() {
 		return this.destinationName;
 	}
 
-	public static final class Properties {
+	public KafkaOperations<?, ?> getKafkaOperations() {
+		return this.properties.kafkaOperations;
+	}
+
+	public boolean shouldRetryOn(Integer attempt, Exception e) {
+		return this.properties.shouldRetryOn.test(attempt, e);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		DestinationTopic that = (DestinationTopic) o;
+		return destinationName.equals(that.destinationName) && properties.equals(that.properties);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(destinationName, properties);
+	}
+
+	public static class Properties {
 		private final long delayMs;
 		private final String suffix;
-		private final boolean isDltTopic;
+		private final Type type;
+		private final int maxAttempts;
+		private final int numPartitions;
+		private final RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy;
+		private final KafkaOperations<?, ?> kafkaOperations;
+		private final BiPredicate<Integer, Exception> shouldRetryOn;
 
-		public Properties(long delayMs, String suffix, boolean isDltTopic) {
+		public Properties(long delayMs, String suffix, Type type,
+						  int maxAttempts, int numPartitions,
+						  RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy,
+						  KafkaOperations<?, ?> kafkaOperations,
+						  BiPredicate<Integer, Exception> shouldRetryOn) {
 			this.delayMs = delayMs;
 			this.suffix = suffix;
-			this.isDltTopic = isDltTopic;
+			this.type = type;
+			this.maxAttempts = maxAttempts;
+			this.numPartitions = numPartitions;
+			this.dltProcessingFailureStrategy = dltProcessingFailureStrategy;
+			this.kafkaOperations = kafkaOperations;
+			this.shouldRetryOn = shouldRetryOn;
+
 		}
 
-		public long delay() {
-			return this.delayMs;
-		}
-
-		public String suffix() {
-			return this.suffix;
+		public Properties(Properties sourceProperties, String suffix, Type type) {
+			this.delayMs = sourceProperties.delayMs;
+			this.suffix = suffix;
+			this.type = type;
+			this.maxAttempts = sourceProperties.maxAttempts;
+			this.numPartitions = sourceProperties.numPartitions;
+			this.dltProcessingFailureStrategy = sourceProperties.dltProcessingFailureStrategy;
+			this.kafkaOperations = sourceProperties.kafkaOperations;
+			this.shouldRetryOn = sourceProperties.shouldRetryOn;
 		}
 
 		public boolean isDltTopic() {
-			return this.isDltTopic;
+			return Type.DLT.equals(this.type);
 		}
+
+		public String suffix() {
+			return suffix;
+		}
+
+		public long delay() {
+			return delayMs;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			Properties that = (Properties) o;
+			return delayMs == that.delayMs && maxAttempts == that.maxAttempts && numPartitions == that.numPartitions && suffix.equals(that.suffix) && type == that.type && dltProcessingFailureStrategy == that.dltProcessingFailureStrategy && kafkaOperations.equals(that.kafkaOperations);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(delayMs, suffix, type, maxAttempts, numPartitions, dltProcessingFailureStrategy, kafkaOperations);
+		}
+	}
+
+	enum Type {
+		MAIN, RETRY, SINGLE_TOPIC_RETRY, DLT, NO_OPS
 	}
 }

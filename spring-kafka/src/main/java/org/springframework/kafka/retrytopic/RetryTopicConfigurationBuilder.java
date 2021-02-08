@@ -33,9 +33,7 @@ import org.springframework.retry.backoff.UniformRandomBackOffPolicy;
 import org.springframework.util.Assert;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 
 /**
@@ -62,6 +60,10 @@ public class RetryTopicConfigurationBuilder {
 	private ConcurrentKafkaListenerContainerFactory<?, ?> listenerContainerFactory;
 	private String listenerContainerFactoryName;
 	private BinaryExceptionClassifierBuilder classifierBuilder;
+	private RetryTopicConfiguration.FixedDelayTopicStrategy fixedDelayTopicStrategy =
+			RetryTopicConfiguration.FixedDelayTopicStrategy.MULTIPLE_TOPICS;
+	private RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy =
+			RetryTopicConfiguration.DltProcessingFailureStrategy.ALWAYS_RETRY;
 
 	/* ---------------- Configure Dlt Bean and Method -------------- */
 	public RetryTopicConfigurationBuilder dltHandlerMethod(Class<?> clazz, String methodName) {
@@ -111,7 +113,8 @@ public class RetryTopicConfigurationBuilder {
 
 	public RetryTopicConfigurationBuilder maxAttempts(int maxAttempts) {
 		Assert.isTrue(maxAttempts > 0, "Number of attempts should be positive");
-		Assert.isTrue(this.maxAttempts == BackOffValuesGenerator.NOT_SET, "You have already set the number of attempts");
+		Assert.isTrue(this.maxAttempts == BackOffValuesGenerator.NOT_SET,
+				"You have already set the number of attempts");
 		this.maxAttempts = maxAttempts;
 		return this;
 	}
@@ -135,7 +138,7 @@ public class RetryTopicConfigurationBuilder {
 		return this;
 	}
 
-	public RetryTopicConfigurationBuilder fixedBackoff(long interval) {
+	public RetryTopicConfigurationBuilder fixedBackOff(long interval) {
 		Assert.isNull(this.backOffPolicy, "You have already selected backoff policy");
 		Assert.isTrue(interval >= 1, "Interval should be >= 1");
 		FixedBackOffPolicy policy = new FixedBackOffPolicy();
@@ -169,10 +172,20 @@ public class RetryTopicConfigurationBuilder {
 		return this;
 	}
 
-	public RetryTopicConfigurationBuilder fixedBackoff(int interval) {
+	public RetryTopicConfigurationBuilder fixedBackOff(int interval) {
 		FixedBackOffPolicy backOffPolicy = new FixedBackOffPolicy();
 		backOffPolicy.setBackOffPeriod(interval);
 		this.backOffPolicy = backOffPolicy;
+		return this;
+	}
+
+	public RetryTopicConfigurationBuilder useSameTopicForFixedDelays() {
+		this.fixedDelayTopicStrategy = RetryTopicConfiguration.FixedDelayTopicStrategy.SINGLE_TOPIC;
+		return this;
+	}
+
+	RetryTopicConfigurationBuilder useSameTopicForFixedDelays(RetryTopicConfiguration.FixedDelayTopicStrategy useSameTopicForFixedDelays) {
+		this.fixedDelayTopicStrategy = useSameTopicForFixedDelays;
 		return this;
 	}
 
@@ -238,6 +251,20 @@ public class RetryTopicConfigurationBuilder {
 		return this.classifierBuilder;
 	}
 
+	/* ---------------- DLT Processing Failure Behavior -------------- */
+	public RetryTopicConfigurationBuilder abortOnDltFailure() {
+		this.dltProcessingFailureStrategy =
+				RetryTopicConfiguration.DltProcessingFailureStrategy.ABORT;
+		return this;
+	}
+
+	RetryTopicConfigurationBuilder dltProcessingFailureStrategy(
+			RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy) {
+		this.dltProcessingFailureStrategy = dltProcessingFailureStrategy;
+		return this;
+	}
+
+
 	/* ---------------- Configure KafkaListenerContainerFactory -------------- */
 	public RetryTopicConfigurationBuilder listenerFactory(ConcurrentKafkaListenerContainerFactory<?, ?> factory) {
 		this.listenerContainerFactory = factory;
@@ -249,21 +276,28 @@ public class RetryTopicConfigurationBuilder {
 		return this;
 	}
 
+	// The templates are configured per ListenerContainerFactory. Only the first configured ones will be used.
 	public RetryTopicConfiguration create(KafkaOperations<?, ?> sendToTopicKafkaTemplate) {
-		return create(Collections.singletonMap(Object.class, sendToTopicKafkaTemplate));
-	}
-
-	public RetryTopicConfiguration create(Map<Class<?>, KafkaOperations<?, ?>> sendToTopicKafkaTemplates) {
-		ListenerContainerFactoryResolver.Configuration listenerContainerFactory = new ListenerContainerFactoryResolver.Configuration(this.listenerContainerFactory, this.listenerContainerFactoryName);
-		DeadLetterPublishingRecovererProvider.Configuration deadLetterProviderConfig = new DeadLetterPublishingRecovererProvider.Configuration(sendToTopicKafkaTemplates, buildClassifier());
-		List<DestinationTopic.Properties> destinationTopicProperties = new DestinationTopicPropertiesFactory(this.retryTopicSuffix, this.dltSuffix, this.maxAttempts, this.backOffPolicy).createProperties();
-		AllowDenyCollectionManager<String> allowListManager = new AllowDenyCollectionManager<>(this.includeTopicNames, this.excludeTopicNames);
-		return new RetryTopicConfiguration(destinationTopicProperties, deadLetterProviderConfig, this.dltHandlerMethod, this.topicCreationConfiguration, allowListManager, listenerContainerFactory);
+		ListenerContainerFactoryResolver.Configuration listenerContainerFactory =
+				new ListenerContainerFactoryResolver.Configuration(this.listenerContainerFactory,
+						this.listenerContainerFactoryName);
+		DeadLetterPublishingRecovererFactory.Configuration deadLetterProviderConfig =
+				new DeadLetterPublishingRecovererFactory.Configuration(sendToTopicKafkaTemplate);
+		AllowDenyCollectionManager<String> allowListManager =
+				new AllowDenyCollectionManager<>(this.includeTopicNames, this.excludeTopicNames);
+		List<DestinationTopic.Properties> destinationTopicProperties =
+				new DestinationTopicPropertiesFactory(this.retryTopicSuffix, this.dltSuffix, this.maxAttempts,
+						this.backOffPolicy, buildClassifier(), this.topicCreationConfiguration.getNumPartitions(),
+						sendToTopicKafkaTemplate, this.fixedDelayTopicStrategy, this.dltProcessingFailureStrategy)
+						.createProperties();
+		return new RetryTopicConfiguration(destinationTopicProperties, deadLetterProviderConfig,
+				this.dltHandlerMethod, this.topicCreationConfiguration, allowListManager, listenerContainerFactory);
 	}
 
 	private BinaryExceptionClassifier buildClassifier() {
 		return this.classifierBuilder != null
 				? this.classifierBuilder.build()
-				: null;
+				: new BinaryExceptionClassifierBuilder().retryOn(Throwable.class).build();
 	}
+
 }

@@ -16,6 +16,8 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
+import org.springframework.kafka.core.KafkaOperations;
+
 import java.util.Map;
 
 /**
@@ -28,9 +30,30 @@ import java.util.Map;
  */
 public interface DestinationTopicResolver {
 
-	String resolveDestinationFor(String topic);
-	String resolveDltDestinationFor(String topic);
-	String resolveDestinationNextExecutionTime(String topic);
+	DestinationTopic resolveNextDestination(String topic, Integer attempt, Exception e);
+	String resolveDestinationNextExecutionTime(String topic, Integer attempt, Exception e);
+	void addDestinations(Map<String, DestinationTopicResolver.DestinationsHolder> sourceDestinationMapToAdd);
+	KafkaOperations<?, ?> getKafkaOperationsFor(String topic);
 
-	void addDestinations(Map<String, DestinationTopic> sourceDestinationMapToAdd);
+	static DestinationsHolder holderFor(DestinationTopic sourceDestination, DestinationTopic nextDestination) {
+		return new DestinationsHolder(sourceDestination, nextDestination);
+	}
+
+	static class DestinationsHolder {
+		private final DestinationTopic sourceDestination;
+		private final DestinationTopic nextDestination;
+
+		DestinationsHolder(DestinationTopic sourceDestination, DestinationTopic nextDestination) {
+			this.sourceDestination = sourceDestination;
+			this.nextDestination = nextDestination;
+		}
+
+		protected DestinationTopic getNextDestination() {
+			return nextDestination;
+		}
+
+		protected DestinationTopic getSourceDestination() {
+			return sourceDestination;
+		}
+	}
 }

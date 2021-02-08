@@ -12,14 +12,14 @@ import java.util.List;
 public class RetryTopicConfiguration {
 
 	private final List<DestinationTopic.Properties> destinationTopicProperties;
-	private final DeadLetterPublishingRecovererProvider.Configuration deadLetterProviderConfiguration;
+	private final AllowDenyCollectionManager<String> topicAllowListManager;
+	private final DeadLetterPublishingRecovererFactory.Configuration deadLetterProviderConfiguration;
 	private final RetryTopicConfigurer.EndpointHandlerMethod dltHandlerMethod;
 	private final TopicCreation kafkaTopicAutoCreation;
-	private final AllowDenyCollectionManager<String> topicAllowListManager;
 	private final ListenerContainerFactoryResolver.Configuration factoryResolverConfig;
 
 	public RetryTopicConfiguration(List<DestinationTopic.Properties> destinationTopicProperties,
-								   DeadLetterPublishingRecovererProvider.Configuration deadLetterProviderConfiguration,
+								   DeadLetterPublishingRecovererFactory.Configuration deadLetterProviderConfiguration,
 								   RetryTopicConfigurer.EndpointHandlerMethod dltHandlerMethod,
 								   TopicCreation kafkaTopicAutoCreation,
 								   AllowDenyCollectionManager<String> topicAllowListManager,
@@ -40,7 +40,7 @@ public class RetryTopicConfiguration {
 		return kafkaTopicAutoCreation;
 	}
 
-	public DeadLetterPublishingRecovererProvider.Configuration getDeadLetterProviderConfiguration() {
+	public DeadLetterPublishingRecovererFactory.Configuration getDeadLetterProviderConfiguration() {
 		return deadLetterProviderConfiguration;
 	}
 
@@ -91,5 +91,14 @@ public class RetryTopicConfiguration {
 		public boolean shouldCreateTopics() {
 			return shouldCreateTopics;
 		}
+	}
+
+	public enum FixedDelayTopicStrategy {
+		SINGLE_TOPIC, MULTIPLE_TOPICS
+	}
+
+	public enum DltProcessingFailureStrategy {
+		ALWAYS_RETRY,
+		ABORT
 	}
 }

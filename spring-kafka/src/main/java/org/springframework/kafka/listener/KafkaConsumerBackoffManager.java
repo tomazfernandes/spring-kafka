@@ -16,20 +16,21 @@
 
 package org.springframework.kafka.listener;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.common.TopicPartition;
-
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
+import org.springframework.kafka.retrytopic.RetryTopicConfigUtils;
+import org.springframework.kafka.retrytopic.RetryTopicHeaders;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
@@ -44,48 +45,47 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 
 	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(KafkaConsumerBackoffManager.class));
 
-	/**
-	 * Default {@link DateTimeFormatter} for the header timestamp.
-	 */
-	public static final DateTimeFormatter DEFAULT_BACKOFF_TIMESTAMP_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
-
 	private final KafkaListenerEndpointRegistry registry;
 	private final Map<TopicPartition, Context> backOffTimes;
+	private final Clock clock;
 
-	public KafkaConsumerBackoffManager(KafkaListenerEndpointRegistry registry) {
+	public KafkaConsumerBackoffManager(KafkaListenerEndpointRegistry registry,
+									   @Qualifier(RetryTopicConfigUtils.INTERNAL_BACKOFF_CLOCK_NAME) Clock clock) {
 		this.registry = registry;
+		this.clock = clock;
 		this.backOffTimes = new HashMap<>();
 	}
 
 	public void maybeBackoff(Context context) {
-		long backoffTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), context.dueTimestamp);
+		long backoffTime = ChronoUnit.MILLIS.between(LocalDateTime.now(clock), context.dueTimestamp);
 		if (backoffTime > 0) {
 			pauseConsumptionAndThrow(context, backoffTime);
 		}
 	}
 
 	private void pauseConsumptionAndThrow(Context context, Long timeToSleep) throws KafkaBackoffException {
-		TopicPartition topicPartition = context.getTopicPartition();
+		TopicPartition topicPartition = context.topicPartition;
 		getListenerContainerFromContext(context).pausePartition(topicPartition);
 		addBackoff(context, topicPartition);
 		throw new KafkaBackoffException(String.format("Partition %s from topic %s is not ready for consumption, " +
-				"backing off for approx. %s millis.", context.partition(), context.topic(), timeToSleep),
-				topicPartition, context.listenerId, context.dueTimestamp().format(DEFAULT_BACKOFF_TIMESTAMP_FORMATTER));
+				"backing off for approx. %s millis.", context.topicPartition.partition(), context.topicPartition.topic(), timeToSleep),
+				topicPartition, context.listenerId, context.dueTimestamp.format(
+						RetryTopicHeaders.DEFAULT_BACKOFF_TIMESTAMP_HEADER_FORMATTER));
 	}
 
 	private MessageListenerContainer getListenerContainerFromContext(Context context) {
-		return this.registry.getListenerContainer(context.getListenerId());
+		return this.registry.getListenerContainer(context.listenerId);
 	}
 
 	@Override
 	public void onApplicationEvent(ListenerContainerPartitionIdleEvent partitionIdleEvent) {
-		Context context = getBackoff(partitionIdleEvent);
-		if (context == null || System.currentTimeMillis() < getDueMillis(context)) {
+		Context context = getBackoff(partitionIdleEvent.getTopicPartition());
+		if (context == null || LocalDateTime.now(clock).isBefore(context.dueTimestamp)) {
 			return;
 		}
 		MessageListenerContainer container = getListenerContainerFromContext(context);
-		container.resumePartition(context.getTopicPartition());
-		removeBackoff(context);
+		container.resumePartition(context.topicPartition);
+		removeBackoff(context.topicPartition);
 	}
 
 	protected void addBackoff(Context context, TopicPartition topicPartition) {
@@ -94,67 +94,43 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		}
 	}
 
-	protected Context getBackoff(ListenerContainerPartitionIdleEvent partitionIdleEvent) {
+	protected Context getBackoff(TopicPartition topicPartition) {
 		synchronized (this.backOffTimes) {
-			return this.backOffTimes.get(partitionIdleEvent.getTopicPartition());
+			return this.backOffTimes.get(topicPartition);
 		}
 	}
 
-	protected void removeBackoff(Context context) {
+	protected void removeBackoff(TopicPartition topicPartition) {
 		synchronized (this.backOffTimes) {
-			this.backOffTimes.remove(context.getTopicPartition());
+			this.backOffTimes.remove(topicPartition);
 		}
-	}
-
-	private long getDueMillis(Context context) {
-		return context.dueTimestamp().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 	}
 
 	public Context createContext(LocalDateTime dueTimestamp, String listenerId, TopicPartition topicPartition) {
 		return new Context(dueTimestamp, listenerId, topicPartition);
 	}
 
-	public final static class Context {
+	public static class Context {
 
 		/**
-		 * The time after which the message can be processed.
+		 * The time after which the message should be processed.
 		 */
-		private final LocalDateTime dueTimestamp;
+		final LocalDateTime dueTimestamp;
 
 		/**
 		 * The id for the listener that should be paused.
 		 */
-		private final String listenerId;
+		final String listenerId;
 
 		/**
 		 * The topic that contains the partition to be paused.
 		 */
-		private TopicPartition topicPartition;
+		final TopicPartition topicPartition;
 
 		private Context(LocalDateTime dueTimestamp, String listenerId, TopicPartition topicPartition) {
 			this.dueTimestamp = dueTimestamp;
 			this.listenerId = listenerId;
 			this.topicPartition = topicPartition;
-		}
-
-		public LocalDateTime dueTimestamp() {
-			return this.dueTimestamp;
-		}
-
-		public TopicPartition getTopicPartition() {
-			return this.topicPartition;
-		}
-
-		public String topic() {
-			return this.topicPartition.topic();
-		}
-
-		public int partition() {
-			return this.topicPartition.partition();
-		}
-
-		public String getListenerId() {
-			return this.listenerId;
 		}
 	}
 }
