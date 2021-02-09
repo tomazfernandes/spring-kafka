@@ -16,8 +16,6 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
-import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -26,18 +24,20 @@ import java.util.function.Consumer;
 
 /**
  *
- * Contains the methods for the {@link org.springframework.kafka.retrytopic.RetryTopicConfigurer}
- * to process the destination topics.
+ * The {@link DestinationTopicProcessor} creates and registers the
+ * {@link DestinationTopic} instances in the provided {@link Context}, also
+ * providing callback interfaces to be called upon the context properties.
  *
  * @author Tomaz Fernandes
  * @since 2.7.0
+ *
  */
 public interface DestinationTopicProcessor {
 
 	void processDestinationProperties(Consumer<DestinationTopic.Properties> destinationPropertiesProcessor, Context context);
 	void processRegisteredDestinations(Consumer<Collection<String>> topicsConsumer, Context context);
 	void registerDestinationTopic(String mainTopicName, String destinationTopicName,
-								  DestinationTopic.Properties destinationTopicProperties, Context context);
+								DestinationTopic.Properties destinationTopicProperties, Context context);
 
 	class Context {
 		protected final Map<String, List<DestinationTopic>> destinationsByTopicMap;

@@ -1,4 +1,23 @@
+/*
+ * Copyright 2018-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic;
+
+import java.math.BigInteger;
+import java.util.stream.StreamSupport;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -6,6 +25,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
+
 import org.springframework.core.NestedRuntimeException;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
@@ -14,19 +34,26 @@ import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopic;
 import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicResolver;
 import org.springframework.util.Assert;
 
-import java.math.BigInteger;
-import java.util.stream.StreamSupport;
-
+/**
+ *
+ * Creates and configures the {@link DeadLetterPublishingRecoverer} that will be used to
+ * forward the messages using the {@link DestinationTopicResolver}.
+ *
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ *
+ */
 public class DeadLetterPublishingRecovererFactory {
 
-	private final CharSequence KAFKA_DLT_HEADERS_PREFIX = "kafka_dlt";
+	private static final CharSequence KAFKA_DLT_HEADERS_PREFIX = "kafka_dlt";
+	private static final String NO_OPS_RETRY_TOPIC = "internal-kafka-noOpsRetry";
 	private final DestinationTopicResolver destinationTopicResolver;
-	private final String NO_OPS_RETRY_TOPIC = "internal-kafka-noOpsRetry";
 
-	public DeadLetterPublishingRecovererFactory(DestinationTopicResolver destinationTopicResolver){
+	public DeadLetterPublishingRecovererFactory(DestinationTopicResolver destinationTopicResolver) {
 		this.destinationTopicResolver = destinationTopicResolver;
 	}
 
+	@SuppressWarnings("unchecked")
 	public DeadLetterPublishingRecoverer create(Configuration configuration) {
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(configuration.template,
 					((cr, e) -> this.resolveDestination(cr, e, configuration))) {
@@ -54,7 +81,7 @@ public class DeadLetterPublishingRecovererFactory {
 
 		int attempt = getAttempts(cr);
 
-		DestinationTopic nextDestination = destinationTopicResolver.resolveNextDestination(cr.topic(), attempt, e);
+		DestinationTopic nextDestination = this.destinationTopicResolver.resolveNextDestination(cr.topic(), attempt, e);
 
 		return nextDestination.isNoOpsTopic()
 					? new TopicPartition(NO_OPS_RETRY_TOPIC, 0)
@@ -79,7 +106,8 @@ public class DeadLetterPublishingRecovererFactory {
 		headers.add(RetryTopicHeaders.DEFAULT_HEADER_ATTEMPTS,
 				BigInteger.valueOf(attempts + 1).toByteArray());
 		headers.add(RetryTopicHeaders.DEFAULT_HEADER_BACKOFF_TIMESTAMP,
-					destinationTopicResolver.resolveDestinationNextExecutionTime(consumerRecord.topic(), attempts, e).getBytes());
+					this.destinationTopicResolver
+							.resolveDestinationNextExecutionTime(consumerRecord.topic(), attempts, e).getBytes());
 		return headers;
 	}
 
@@ -87,7 +115,7 @@ public class DeadLetterPublishingRecovererFactory {
 	private RecordHeaders filterPreviousDltHeaders(Headers headers) {
 		return StreamSupport
 				.stream(headers.spliterator(), false)
-				.filter(header -> !new String(header.value()).contains(this.KAFKA_DLT_HEADERS_PREFIX))
+				.filter(header -> !new String(header.value()).contains(KAFKA_DLT_HEADERS_PREFIX))
 				.reduce(new RecordHeaders(), ((recordHeaders, header) -> {
 					recordHeaders.add(header);
 					return recordHeaders;

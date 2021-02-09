@@ -1,13 +1,46 @@
+/*
+ * Copyright 2018-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willReturn;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.times;
+
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
@@ -16,28 +49,14 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
 import org.springframework.kafka.config.MultiMethodKafkaListenerEndpoint;
-import org.springframework.kafka.listener.ListenerUtils;
 import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopic;
 import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicProcessor;
 import org.springframework.kafka.support.Suffixer;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.List;
-import java.util.function.Consumer;
-import java.util.stream.IntStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
+/**
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ */
 @ExtendWith(MockitoExtension.class)
 class RetryTopicConfigurerTest {
 
@@ -87,7 +106,7 @@ class RetryTopicConfigurerTest {
 	ListenerContainerFactoryResolver.Configuration factoryResolverConfig;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory containerFactory;
+	ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
 
 	@Captor
 	ArgumentCaptor<RetryTopicConfigurer.EndpointProcessingCustomizerHolder> mainCustomizerHolderCaptor;
@@ -108,13 +127,13 @@ class RetryTopicConfigurerTest {
 	Consumer<DestinationTopic.Properties> destinationPropertiesConsumer;
 
 	@Mock
-	MethodKafkaListenerEndpoint retryEndpoint1;
+	MethodKafkaListenerEndpoint<?, ?> retryEndpoint1;
 
 	@Mock
-	MethodKafkaListenerEndpoint retryEndpoint2;
+	MethodKafkaListenerEndpoint<?, ?> retryEndpoint2;
 
 	@Mock
-	MethodKafkaListenerEndpoint dltEndpoint;
+	MethodKafkaListenerEndpoint<?, ?> dltEndpoint;
 
 	List<String> topics = Arrays.asList("topic1", "topic2");
 
@@ -126,15 +145,15 @@ class RetryTopicConfigurerTest {
 	private Object bean = new Object();
 
 	@Mock
-	private ConsumerRecord consumerRecordMessage;
+	private ConsumerRecord<?, ?> consumerRecordMessage;
 
 	private Object objectMessage = new Object();
 
-	@NotNull
 	private Method getMethod(String methodName)  {
 		try {
 			return this.getClass().getMethod(methodName);
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -146,41 +165,13 @@ class RetryTopicConfigurerTest {
 		RetryTopicConfigurer configurer = new RetryTopicConfigurer(destinationTopicProcessor, containerFactoryResolver,
 				listenerContainerFactoryConfigurer, beanFactory);
 
-		// when - then
+		// given - then
 		assertThrows(IllegalArgumentException.class,
 				() -> configurer.processMainAndRetryListeners(endpointProcessor, multiMethodEndpoint, configuration));
 	}
 
 	@Test
-	void shouldConfigure() {
-
-		List<DestinationTopic.Properties> destinationPropertiesList =
-				Arrays.asList(mainDestinationProperties, firstRetryDestinationProperties,
-						secondRetryDestinationProperties, dltDestinationProperties);
-
-		// setup
-		when(configuration.getDestinationTopicProperties()).thenReturn(destinationPropertiesList);
-		when(mainEndpoint.getBean()).thenReturn(bean);
-		when(mainEndpoint.getMethod()).thenReturn(endpointMethod);
-		when(configuration.getDltHandlerMethod()).thenReturn(endpointHandlerMethod);
-
-		RetryTopicConfigurer configurer = new RetryTopicConfigurer(destinationTopicProcessor, containerFactoryResolver,
-				listenerContainerFactoryConfigurer, beanFactory);
-
-		// when
-		configurer.processMainAndRetryListeners(endpointProcessor, mainEndpoint, configuration);
-
-		// then
-		verify(endpointProcessor, times(1))
-				.accept(eq(mainEndpoint), mainCustomizerHolderCaptor.capture());
-		RetryTopicConfigurer.EndpointProcessingCustomizerHolder mainHolder = mainCustomizerHolderCaptor.getValue();
-
-		verify(destinationTopicProcessor, times(1))
-				.processDestinationProperties(any(Consumer.class), any(DestinationTopicProcessor.Context.class));
-	}
-
-	@Test
-	void shouldConfigure2() {
+	void shouldConfigureRetryEndpoints() {
 
 		// setup
 
@@ -189,48 +180,47 @@ class RetryTopicConfigurerTest {
 						secondRetryDestinationProperties, dltDestinationProperties);
 
 
-		List<MethodKafkaListenerEndpoint> endpoints = Arrays.asList(mainEndpoint, retryEndpoint1, retryEndpoint2, dltEndpoint);
+		List<MethodKafkaListenerEndpoint<?, ?>> endpoints = Arrays.asList(mainEndpoint, retryEndpoint1, retryEndpoint2, dltEndpoint);
 
 		IntStream.range(1, endpoints.size())
 				.forEach(index -> {
-			MethodKafkaListenerEndpoint endpoint = endpoints.get(index);
-			when(endpoint.getId()).thenReturn("testId");
-			when(endpoint.getGroup()).thenReturn("testGroup");
-			when(endpoint.getGroupId()).thenReturn("testGroupId");
-			when(endpoint.getClientIdPrefix()).thenReturn("testClientPrefix");
-			when(endpoint.getTopics()).thenReturn(topics);
+			MethodKafkaListenerEndpoint<?, ?> endpoint = endpoints.get(index);
+			given(endpoint.getId()).willReturn("testId");
+			given(endpoint.getGroup()).willReturn("testGroup");
+			given(endpoint.getGroupId()).willReturn("testGroupId");
+			given(endpoint.getClientIdPrefix()).willReturn("testClientPrefix");
+			given(endpoint.getTopics()).willReturn(topics);
 		});
 
-		when(configuration.getDestinationTopicProperties()).thenReturn(destinationPropertiesList);
-		when(mainEndpoint.getBean()).thenReturn(bean);
-		when(mainEndpoint.getMethod()).thenReturn(endpointMethod);
-		when(configuration.getDltHandlerMethod()).thenReturn(endpointHandlerMethod);
+		given(configuration.getDestinationTopicProperties()).willReturn(destinationPropertiesList);
+		given(mainEndpoint.getBean()).willReturn(bean);
+		given(mainEndpoint.getMethod()).willReturn(endpointMethod);
+		given(configuration.getDltHandlerMethod()).willReturn(endpointHandlerMethod);
 
-		when(configuration.getFactoryResolverConfig()).thenReturn(factoryResolverConfig);
-		when(configuration.getDeadLetterProviderConfiguration()).thenReturn(deadLetterConfiguration);
-		when(listenerContainerFactoryConfigurer.configure(containerFactory, deadLetterConfiguration))
-				.thenReturn(containerFactory);
-		when(containerFactoryResolver.resolveFactoryForMainEndpoint(any(KafkaListenerContainerFactory.class),
-				eq(factoryResolverConfig))).thenReturn(containerFactory);
-		when(firstRetryDestinationProperties.suffix()).thenReturn("-retry");
-		when(secondRetryDestinationProperties.suffix()).thenReturn("-retry");
-		when(dltDestinationProperties.suffix()).thenReturn("-dlt");
+		given(configuration.forContainerFactoryResolver()).willReturn(factoryResolverConfig);
+		given(configuration.forDeadLetterFactory()).willReturn(deadLetterConfiguration);
+		willReturn(containerFactory).given(listenerContainerFactoryConfigurer).configure(containerFactory, deadLetterConfiguration);
+		willReturn(containerFactory).given(containerFactoryResolver).resolveFactoryForMainEndpoint(any(KafkaListenerContainerFactory.class),
+				eq(factoryResolverConfig));
+		given(firstRetryDestinationProperties.suffix()).willReturn("-retry");
+		given(secondRetryDestinationProperties.suffix()).willReturn("-retry");
+		given(dltDestinationProperties.suffix()).willReturn("-dlt");
 
 		RetryTopicConfigurer configurer = new RetryTopicConfigurer(destinationTopicProcessor, containerFactoryResolver,
 				listenerContainerFactoryConfigurer, beanFactory);
 
-		// when
+		// given
 		configurer.processMainAndRetryListeners(endpointProcessor, mainEndpoint, configuration);
 
 		// then
-		verify(endpointProcessor, times(1))
+		then(endpointProcessor).should(times(1))
 				.accept(eq(mainEndpoint), mainCustomizerHolderCaptor.capture());
 		RetryTopicConfigurer.EndpointProcessingCustomizerHolder mainHolder = mainCustomizerHolderCaptor.getValue();
 
 		MethodKafkaListenerEndpoint<?, ?> processedEndpoint = mainHolder.getEndpointCustomizer().apply(mainEndpoint);
 		KafkaListenerContainerFactory<?> customizedFactory = mainHolder.getFactoryCustomizer().apply(containerFactory);
 
-		verify(destinationTopicProcessor, times(1))
+		then(destinationTopicProcessor).should(times(1))
 				.processDestinationProperties(destinationPropertiesProcessorCaptor.capture(), contextCaptor.capture());
 
 		Consumer<DestinationTopic.Properties> destinationPropertiesConsumer = destinationPropertiesProcessorCaptor.getValue();
@@ -238,7 +228,7 @@ class RetryTopicConfigurerTest {
 		destinationPropertiesConsumer.accept(secondRetryDestinationProperties);
 		destinationPropertiesConsumer.accept(dltDestinationProperties);
 
-		verify(endpointProcessor, times(4))
+		then(endpointProcessor).should(times(4))
 				.accept(any(MethodKafkaListenerEndpoint.class), retryCustomizerHolderCaptor.capture());
 		List<RetryTopicConfigurer.EndpointProcessingCustomizerHolder> allRetryHolders = retryCustomizerHolderCaptor.getAllValues();
 
@@ -250,23 +240,23 @@ class RetryTopicConfigurerTest {
 					allRetryHolders.get(index).getEndpointCustomizer().apply(endpoints.get(index));
 					return index;
 				})
-				.forEach(index -> verifyEndpointCustomizing(endpoints.get(index), destinationPropertiesList.get(index), context));
+				.forEach(index -> thenEndpointCustomizing(endpoints.get(index), destinationPropertiesList.get(index), context));
 
 		KafkaListenerContainerFactory<?> customizedRetryFactory = allRetryHolders.get(1).getFactoryCustomizer().apply(containerFactory);
 
 	}
 
-	private void verifyEndpointCustomizing(MethodKafkaListenerEndpoint<?, ?> endpoint, DestinationTopic.Properties properties, DestinationTopicProcessor.Context context) {
+	private void thenEndpointCustomizing(MethodKafkaListenerEndpoint<?, ?> endpoint, DestinationTopic.Properties properties, DestinationTopicProcessor.Context context) {
 		Suffixer suffixer = new Suffixer(properties.suffix());
-		verify(endpoint, times(1)).setId(suffixer.maybeAddTo(endpoint.getId()));
-		verify(endpoint, times(1)).setGroupId(suffixer.maybeAddTo(endpoint.getGroupId()));
-		verify(endpoint, times(1)).setClientIdPrefix(suffixer.maybeAddTo(endpoint.getClientIdPrefix()));
-		verify(endpoint, times(1)).setGroup(suffixer.maybeAddTo(endpoint.getGroup()));
+		then(endpoint).should(times(1)).setId(suffixer.maybeAddTo(endpoint.getId()));
+		then(endpoint).should(times(1)).setGroupId(suffixer.maybeAddTo(endpoint.getGroupId()));
+		then(endpoint).should(times(1)).setClientIdPrefix(suffixer.maybeAddTo(endpoint.getClientIdPrefix()));
+		then(endpoint).should(times(1)).setGroup(suffixer.maybeAddTo(endpoint.getGroup()));
 		endpoint
 				.getTopics()
 				.stream()
 				.forEach(topic ->
-						verify(destinationTopicProcessor, times(1))
+						then(destinationTopicProcessor).should(times(1))
 								.registerDestinationTopic(topic, suffixer.maybeAddTo(topic), properties, context)
 						);
 	}
@@ -285,11 +275,11 @@ class RetryTopicConfigurerTest {
 
 		// setup
 		NoOpsClass noOps = new NoOpsClass();
-		doReturn(noOps).when(beanFactory).getBean(NoOpsClass.class);
+		willReturn(noOps).given(beanFactory).getBean(NoOpsClass.class);
 		RetryTopicConfigurer.EndpointHandlerMethod handlerMethod =
 				RetryTopicConfigurer.createHandlerMethodWith(NoOpsClass.class, noOpsMethodName);
 
-		// when
+		// given
 		Object resolvedBean = handlerMethod.resolveBean(this.beanFactory);
 
 		// then
@@ -302,23 +292,19 @@ class RetryTopicConfigurerTest {
 
 		// setup
 		String beanName = NoOpsClass.class.getSimpleName() + "-handlerMethod";
-		when(defaultListableBeanFactory.getBean(beanName)).thenReturn(new NoOpsClass());
-		doThrow(NoSuchBeanDefinitionException.class).when(defaultListableBeanFactory).getBean(NoOpsClass.class);
+		given(defaultListableBeanFactory.getBean(beanName)).willReturn(new NoOpsClass());
+		willThrow(NoSuchBeanDefinitionException.class).given(defaultListableBeanFactory).getBean(NoOpsClass.class);
 		RetryTopicConfigurer.EndpointHandlerMethod handlerMethod =
 				RetryTopicConfigurer.createHandlerMethodWith(NoOpsClass.class, noOpsMethodName);
 
-		// when
+		// given
 		Object resolvedBean = handlerMethod.resolveBean(this.defaultListableBeanFactory);
 
 		// then
-		verify(defaultListableBeanFactory)
+		then(defaultListableBeanFactory).should()
 				.registerBeanDefinition(eq(beanName), any(RootBeanDefinition.class));
 		assertTrue(NoOpsClass.class.isAssignableFrom(resolvedBean.getClass()));
 
-	}
-
-	static class NoOpsClass {
-		void noOpsMethod(){};
 	}
 
 	@Test
@@ -326,7 +312,7 @@ class RetryTopicConfigurerTest {
 		RetryTopicConfigurer.LoggingDltListenerHandlerMethod method =
 				new RetryTopicConfigurer.LoggingDltListenerHandlerMethod();
 		method.logMessage(consumerRecordMessage);
-		verify(consumerRecordMessage, times(0)).topic();
+		then(consumerRecordMessage).should(times(0)).topic();
 	}
 
 	@Test
@@ -336,7 +322,7 @@ class RetryTopicConfigurerTest {
 		method.logMessage(objectMessage);
 	}
 
-	@Test
-	void builder() {
+	static class NoOpsClass {
+		void noOpsMethod() { };
 	}
 }

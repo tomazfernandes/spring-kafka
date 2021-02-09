@@ -16,7 +16,30 @@
 
 package org.springframework.kafka.annotation;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.lang.reflect.Method;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.apache.commons.logging.LogFactory;
+
 import org.springframework.aop.framework.Advised;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
@@ -53,10 +76,9 @@ import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
 import org.springframework.kafka.config.MultiMethodKafkaListenerEndpoint;
 import org.springframework.kafka.listener.KafkaListenerErrorHandler;
-import org.springframework.kafka.retrytopic.RetryTopicConfigurationProvider;
-import org.springframework.kafka.retrytopic.RetryableTopicAnnotationProcessor;
 import org.springframework.kafka.retrytopic.RetryTopicBootstrapper;
 import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
+import org.springframework.kafka.retrytopic.RetryTopicConfigurationProvider;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.support.KafkaNull;
 import org.springframework.kafka.support.TopicPartitionOffset;
@@ -73,28 +95,6 @@ import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.Validator;
-
-import java.io.IOException;
-import java.io.StringReader;
-import java.lang.reflect.Method;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Bean post-processor that registers methods annotated with {@link KafkaListener}
@@ -123,6 +123,7 @@ import java.util.stream.Stream;
  * @author Venil Noronha
  * @author Dimitri Penner
  * @author Filip Halemba
+ * @author Tomaz Fernandes
  *
  * @see KafkaListener
  * @see KafkaListenerErrorHandler
@@ -392,7 +393,7 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 	}
 
 	private boolean processMainAndRetryListeners(KafkaListener kafkaListener, Object bean, String beanName,
-												 Method methodToUse, MethodKafkaListenerEndpoint<K, V> endpoint) {
+												Method methodToUse, MethodKafkaListenerEndpoint<K, V> endpoint) {
 
 		RetryTopicConfiguration retryTopicConfiguration = new RetryTopicConfigurationProvider(this.beanFactory)
 				.findRetryConfigurationFor(kafkaListener.topics(), methodToUse, bean);
@@ -414,14 +415,15 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 	private RetryTopicConfigurer getRetryTopicConfigurer() {
 		RetryTopicConfigurer retryTopicConfigurer;
 		try {
-			 return this.beanFactory.getBean(RetryTopicConfigurer.class);
-		} catch (NoSuchBeanDefinitionException e) {
+			return this.beanFactory.getBean(RetryTopicConfigurer.class);
+		}
+		catch (NoSuchBeanDefinitionException e) {
 			if (!(this.beanFactory instanceof AutowireCapableBeanFactory)) {
 				throw new IllegalStateException("BeanFactory must be an instance of "
 						+ AutowireCapableBeanFactory.class.getSimpleName()
 						+ " Provided beanFactory: " + this.beanFactory.getClass().getSimpleName());
 			}
-			((AutowireCapableBeanFactory) beanFactory)
+			((AutowireCapableBeanFactory) this.beanFactory)
 					.createBean(RetryTopicBootstrapper.class)
 					.bootstrapRetryTopic();
 			return this.beanFactory.getBean(RetryTopicConfigurer.class);

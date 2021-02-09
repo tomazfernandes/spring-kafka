@@ -16,12 +16,6 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextRefreshedEvent;
-import org.springframework.kafka.core.KafkaOperations;
-import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
-import org.springframework.kafka.retrytopic.RetryTopicHeaders;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -30,14 +24,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.kafka.core.KafkaOperations;
+import org.springframework.kafka.retrytopic.RetryTopicHeaders;
+
 
 /**
  *
- * This class contains the destination topics and correlates them with their source via the static sourceDestinationMap.
- * The map is static so that different topic groups can share the same {@link org.springframework.kafka.config.KafkaListenerContainerFactory}
- * and its configured destinationResolver function in the {@link org.springframework.kafka.listener.DeadLetterPublishingRecoverer}.
+ * Contains the destination topics and correlates them with their source via the
+ * Map&lt;String, {@link org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicResolver.DestinationsHolder}&gt; map.
  *
- * Implements the {@link DestinationTopicProcessor} and {@link DestinationTopicResolver} interfaces.
+ * Implements the {@link DestinationTopicResolver} interface.
  *
  * @author Tomaz Fernandes
  * @since 2.7.0
@@ -79,7 +77,7 @@ public class DestinationTopicContainer implements DestinationTopicResolver, Appl
 
 	@Override
 	public String resolveDestinationNextExecutionTime(String topic, Integer attempt, Exception e) {
-		return LocalDateTime.now(clock)
+		return LocalDateTime.now(this.clock)
 				.plus(resolveNextDestination(topic, attempt, e).getDestinationDelay(), ChronoUnit.MILLIS)
 				.format(RetryTopicHeaders.DEFAULT_BACKOFF_TIMESTAMP_HEADER_FORMATTER);
 	}
@@ -96,34 +94,34 @@ public class DestinationTopicContainer implements DestinationTopicResolver, Appl
 	}
 
 	private DestinationsHolder getDestinationHolderFor(String topic) {
-		return containerClosed
+		return this.containerClosed
 				? doGetDestinationFor(topic)
 				: getDestinationTopicSynchronized(topic);
 	}
 
 	private DestinationsHolder getDestinationTopicSynchronized(String topic) {
-		synchronized (destinationsHolderMap) {
+		synchronized (this.destinationsHolderMap) {
 			return doGetDestinationFor(topic);
 		}
 	}
 
 	private DestinationsHolder doGetDestinationFor(String topic) {
-		return Objects.requireNonNull(destinationsHolderMap.get(topic),
+		return Objects.requireNonNull(this.destinationsHolderMap.get(topic),
 				() -> "No destination found for topic: " + topic);
 	}
 
 	private Optional<DestinationsHolder> maybeGetDestinationFor(String topic) {
-		return Optional.ofNullable(destinationsHolderMap.get(topic));
+		return Optional.ofNullable(this.destinationsHolderMap.get(topic));
 	}
 
 	@Override
 	public void addDestinations(Map<String, DestinationTopicResolver.DestinationsHolder> sourceDestinationMapToAdd) {
-		if (containerClosed) {
+		if (this.containerClosed) {
 			throw new IllegalStateException("Cannot add new destinations, "
 					+ DestinationTopicContainer.class.getSimpleName() + " is already closed.");
 		}
-		synchronized (destinationsHolderMap) {
-			destinationsHolderMap.putAll(sourceDestinationMapToAdd);
+		synchronized (this.destinationsHolderMap) {
+			this.destinationsHolderMap.putAll(sourceDestinationMapToAdd);
 		}
 	}
 

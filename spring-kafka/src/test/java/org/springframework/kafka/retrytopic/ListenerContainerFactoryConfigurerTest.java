@@ -1,4 +1,34 @@
+/*
+ * Copyright 2018-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
+
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -11,6 +41,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.listener.AcknowledgingConsumerAwareMessageListener;
@@ -24,20 +55,10 @@ import org.springframework.kafka.listener.adapter.AbstractDelegatingMessageListe
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
 import org.springframework.kafka.support.Acknowledgment;
 
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
+/**
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ */
 @ExtendWith(MockitoExtension.class)
 class ListenerContainerFactoryConfigurerTest {
 
@@ -106,21 +127,21 @@ class ListenerContainerFactoryConfigurerTest {
 	void shouldSetupErrorHandling() {
 
 		// setup
-		when(containerFactory.getContainerProperties()).thenReturn(containerProperties);
-		when(container.getContainerProperties()).thenReturn(containerProperties);
-		when(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).thenReturn(recoverer);
-		when(containerProperties.getAckMode()).thenReturn(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
-		when(containerProperties.getCommitCallback()).thenReturn(offsetCommitCallback);
+		given(containerFactory.getContainerProperties()).willReturn(containerProperties);
+		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).willReturn(recoverer);
+		given(containerProperties.getAckMode()).willReturn(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+		given(containerProperties.getCommitCallback()).willReturn(offsetCommitCallback);
 
 
-		// when
+		// given
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory);
 		configurer.setErrorHandlerCustomizer(errorHandlerCustomizer);
 		ConcurrentKafkaListenerContainerFactory<?, ?> factory = configurer.configure(containerFactory, recovererConfiguration);
 
 		// then
-		verify(containerFactory, times(1)).setErrorHandler(errorHandlerCaptor.capture());
+		then(containerFactory).should(times(1)).setErrorHandler(errorHandlerCaptor.capture());
 		ErrorHandler errorHandler = errorHandlerCaptor.getValue();
 		assertTrue(SeekToCurrentErrorHandler.class.isAssignableFrom(errorHandler.getClass()));
 		SeekToCurrentErrorHandler seekToCurrent = (SeekToCurrentErrorHandler) errorHandler;
@@ -128,11 +149,11 @@ class ListenerContainerFactoryConfigurerTest {
 		RuntimeException ex = new RuntimeException();
 		seekToCurrent.handle(ex, records, consumer, container);
 
-		verify(recoverer, times(1)).accept(record, ex);
-		verify(containerProperties, times(1))
+		then(recoverer).should(times(1)).accept(record, ex);
+		then(containerProperties).should(times(1))
 				.setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
-		verify(consumer, times(1)).commitAsync(any(Map.class), eq(offsetCommitCallback));
-		verify(errorHandlerCustomizer, times(1)).accept(errorHandler);
+		then(consumer).should(times(1)).commitAsync(any(Map.class), eq(offsetCommitCallback));
+		then(errorHandlerCustomizer).should(times(1)).accept(errorHandler);
 
 	}
 
@@ -141,23 +162,23 @@ class ListenerContainerFactoryConfigurerTest {
 
 		// setup
 		long idlePartitionInterval = 100L;
-		when(containerFactory.getContainerProperties()).thenReturn(containerProperties);
-		when(container.getContainerProperties()).thenReturn(containerProperties);
-		when(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).thenReturn(recoverer);
-		when(containerProperties.getIdlePartitionEventInterval()).thenReturn(idlePartitionInterval);
-		when(containerProperties.getMessageListener()).thenReturn(listener);
+		given(containerFactory.getContainerProperties()).willReturn(containerProperties);
+		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).willReturn(recoverer);
+		given(containerProperties.getIdlePartitionEventInterval()).willReturn(idlePartitionInterval);
+		given(containerProperties.getMessageListener()).willReturn(listener);
 
-		// when
+		// given
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory);
 		ConcurrentKafkaListenerContainerFactory<?, ?> factory = configurer.configure(containerFactory, recovererConfiguration);
 
 		// then
-		verify(containerFactory, times(1)).setContainerCustomizer(containerCustomizerCaptor.capture());
+		then(containerFactory).should(times(1)).setContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
-		verify(containerProperties, times(0)).setIdlePartitionEventInterval(anyLong());
+		then(containerProperties).should(times(0)).setIdlePartitionEventInterval(anyLong());
 	}
 
 	@Test
@@ -165,71 +186,71 @@ class ListenerContainerFactoryConfigurerTest {
 
 		// setup
 		long idlePartitionInterval = 1000L;
-		when(containerFactory.getContainerProperties()).thenReturn(containerProperties);
-		when(container.getContainerProperties()).thenReturn(containerProperties);
-		when(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).thenReturn(recoverer);
-		when(containerProperties.getIdlePartitionEventInterval()).thenReturn(null);
-		when(containerProperties.getMessageListener()).thenReturn(listener);
+		given(containerFactory.getContainerProperties()).willReturn(containerProperties);
+		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).willReturn(recoverer);
+		given(containerProperties.getIdlePartitionEventInterval()).willReturn(null);
+		given(containerProperties.getMessageListener()).willReturn(listener);
 
-		// when
+		// given
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory);
 		ConcurrentKafkaListenerContainerFactory<?, ?> factory = configurer.configure(containerFactory, recovererConfiguration);
 
 		// then
-		verify(containerFactory, times(1)).setContainerCustomizer(containerCustomizerCaptor.capture());
+		then(containerFactory).should(times(1)).setContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
-		verify(containerProperties, times(1)).setIdlePartitionEventInterval(idlePartitionInterval);
+		then(containerProperties).should(times(1)).setIdlePartitionEventInterval(idlePartitionInterval);
 	}
 
 	@Test
 	void shouldSetupMessageListenerAdapter() {
 
 		// setup
-		when(containerFactory.getContainerProperties()).thenReturn(containerProperties);
-		when(container.getContainerProperties()).thenReturn(containerProperties);
-		when(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).thenReturn(recoverer);
-		when(containerProperties.getIdlePartitionEventInterval()).thenReturn(null);
-		when(containerProperties.getMessageListener()).thenReturn(listener);
+		given(containerFactory.getContainerProperties()).willReturn(containerProperties);
+		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).willReturn(recoverer);
+		given(containerProperties.getIdlePartitionEventInterval()).willReturn(null);
+		given(containerProperties.getMessageListener()).willReturn(listener);
 		RecordHeaders headers = new RecordHeaders();
 		headers.add(RetryTopicHeaders.DEFAULT_HEADER_BACKOFF_TIMESTAMP,
 				LocalDateTime.now().format(RetryTopicHeaders.DEFAULT_BACKOFF_TIMESTAMP_HEADER_FORMATTER).getBytes());
-		when(data.headers()).thenReturn(headers);
+		given(data.headers()).willReturn(headers);
 		String testListenerId = "testListenerId";
-		when(container.getListenerId()).thenReturn(testListenerId);
+		given(container.getListenerId()).willReturn(testListenerId);
 
-		// when
+		// given
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory);
 		configurer.setContainerCustomizer(configurerContainerCustomizer);
 		ConcurrentKafkaListenerContainerFactory<?, ?> factory = configurer.configure(containerFactory, recovererConfiguration);
 
 		// then
-		verify(containerFactory, times(1)).setContainerCustomizer(containerCustomizerCaptor.capture());
+		then(containerFactory).should(times(1)).setContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
-		verify(container, times(1)).setupMessageListener(listenerAdapterCaptor.capture());
+		then(container).should(times(1)).setupMessageListener(listenerAdapterCaptor.capture());
 		KafkaBackoffAwareMessageListenerAdapter listenerAdapter = (KafkaBackoffAwareMessageListenerAdapter) listenerAdapterCaptor.getValue();
 		listenerAdapter.onMessage(data, ack, consumer);
 
-		verify(this.kafkaConsumerBackoffManager, times(1))
+		then(this.kafkaConsumerBackoffManager).should(times(1))
 				.createContext(any(LocalDateTime.class), listenerIdCaptor.capture(), any(TopicPartition.class));
 		assertEquals(testListenerId, listenerIdCaptor.getValue());
-		verify(listener, times(1)).onMessage(data, ack, consumer);
+		then(listener).should(times(1)).onMessage(data, ack, consumer);
 
-		verify(this.configurerContainerCustomizer, times(1)).accept(container);
+		then(this.configurerContainerCustomizer).should(times(1)).accept(container);
 	}
 
 	@Test
 	void shouldCacheFactoryInstances() {
 
 		// setup
-		when(containerFactory.getContainerProperties()).thenReturn(containerProperties);
-		when(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).thenReturn(recoverer);
+		given(containerFactory.getContainerProperties()).willReturn(containerProperties);
+		given(deadLetterPublishingRecovererFactory.create(recovererConfiguration)).willReturn(recoverer);
 
-		// when
+		// given
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory);
 		ConcurrentKafkaListenerContainerFactory<?, ?> factory = configurer.configure(containerFactory, recovererConfiguration);
@@ -237,8 +258,8 @@ class ListenerContainerFactoryConfigurerTest {
 
 		// then
 		assertEquals(factory, secondFactory);
-		verify(containerFactory, times(1)).setContainerCustomizer(any());
-		verify(containerFactory, times(1)).setErrorHandler(any());
-		verify(containerProperties, times(1)).setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+		then(containerFactory).should(times(1)).setContainerCustomizer(any());
+		then(containerFactory).should(times(1)).setErrorHandler(any());
+		then(containerProperties).should(times(1)).setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
 	}
 }

@@ -1,25 +1,45 @@
+/*
+ * Copyright 2018-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willReturn;
+import static org.mockito.Mockito.times;
+
+import java.lang.reflect.Method;
+import java.util.Collections;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.core.KafkaOperations;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Collections;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
+/**
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ */
 @ExtendWith(MockitoExtension.class)
 class RetryTopicConfigurationProviderTest {
 
@@ -36,7 +56,8 @@ class RetryTopicConfigurationProviderTest {
 	private Method getAnnotatedMethod(String methodName) {
 		try {
 			return  this.getClass().getDeclaredMethod(methodName);
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -48,7 +69,7 @@ class RetryTopicConfigurationProviderTest {
 	RetryableTopic annotation;
 
 	@Mock
-	KafkaOperations kafkaOperations;
+	KafkaOperations<?, ?> kafkaOperations;
 
 	@Mock
 	RetryTopicConfiguration retryTopicConfiguration;
@@ -60,14 +81,14 @@ class RetryTopicConfigurationProviderTest {
 	void shouldProvideFromAnnotation() {
 
 		// setup
-		doReturn(kafkaOperations).when(beanFactory).getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class);
+		willReturn(kafkaOperations).given(beanFactory).getBean(RetryTopicInternalBeanNames.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class);
 
-		// when
+		// given
 		RetryTopicConfigurationProvider provider = new RetryTopicConfigurationProvider(beanFactory);
 		RetryTopicConfiguration configuration = provider.findRetryConfigurationFor(topics, annotatedMethod, bean);
 
 		// then
-		verify(this.beanFactory, times(0)).getBeansOfType(RetryTopicConfiguration.class);
+		then(this.beanFactory).should(times(0)).getBeansOfType(RetryTopicConfiguration.class);
 
 	}
 
@@ -75,16 +96,16 @@ class RetryTopicConfigurationProviderTest {
 	void shouldProvideFromBeanFactory() {
 
 		// setup
-		doReturn(Collections.singletonMap("retryTopicConfiguration", retryTopicConfiguration))
-				.when(this.beanFactory).getBeansOfType(RetryTopicConfiguration.class);
-		when(retryTopicConfiguration.hasConfigurationForTopics(topics)).thenReturn(true);
+		willReturn(Collections.singletonMap("retryTopicConfiguration", retryTopicConfiguration))
+				.given(this.beanFactory).getBeansOfType(RetryTopicConfiguration.class);
+		given(retryTopicConfiguration.hasConfigurationForTopics(topics)).willReturn(true);
 
-		// when
+		// given
 		RetryTopicConfigurationProvider provider = new RetryTopicConfigurationProvider(beanFactory);
 		RetryTopicConfiguration configuration = provider.findRetryConfigurationFor(topics, nonAnnotatedMethod, bean);
 
 		// then
-		verify(this.beanFactory, times(1)).getBeansOfType(RetryTopicConfiguration.class);
+		then(this.beanFactory).should(times(1)).getBeansOfType(RetryTopicConfiguration.class);
 		assertEquals(retryTopicConfiguration, configuration);
 
 	}
@@ -93,16 +114,16 @@ class RetryTopicConfigurationProviderTest {
 	void shouldFindNone() {
 
 		// setup
-		doReturn(Collections.singletonMap("retryTopicConfiguration", retryTopicConfiguration))
-				.when(this.beanFactory).getBeansOfType(RetryTopicConfiguration.class);
-		when(retryTopicConfiguration.hasConfigurationForTopics(topics)).thenReturn(false);
+		willReturn(Collections.singletonMap("retryTopicConfiguration", retryTopicConfiguration))
+				.given(this.beanFactory).getBeansOfType(RetryTopicConfiguration.class);
+		given(retryTopicConfiguration.hasConfigurationForTopics(topics)).willReturn(false);
 
-		// when
+		// given
 		RetryTopicConfigurationProvider provider = new RetryTopicConfigurationProvider(beanFactory);
 		RetryTopicConfiguration configuration = provider.findRetryConfigurationFor(topics, nonAnnotatedMethod, bean);
 
 		// then
-		verify(this.beanFactory, times(1)).getBeansOfType(RetryTopicConfiguration.class);
+		then(this.beanFactory).should(times(1)).getBeansOfType(RetryTopicConfiguration.class);
 		assertNull(configuration);
 
 	}
@@ -111,7 +132,7 @@ class RetryTopicConfigurationProviderTest {
 	@Test
 	void shouldNotConfigureIfBeanFactoryNull() {
 
-		// when
+		// given
 		RetryTopicConfigurationProvider provider = new RetryTopicConfigurationProvider(null);
 		RetryTopicConfiguration configuration = provider.findRetryConfigurationFor(topics, nonAnnotatedMethod, bean);
 

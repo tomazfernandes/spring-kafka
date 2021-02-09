@@ -1,10 +1,34 @@
+/*
+ * Copyright 2018-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic.destinationtopic;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.springframework.classify.BinaryExceptionClassifier;
 import org.springframework.classify.BinaryExceptionClassifierBuilder;
 import org.springframework.kafka.core.KafkaOperations;
@@ -13,14 +37,11 @@ import org.springframework.retry.backoff.BackOffPolicy;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.backoff.FixedBackOffPolicy;
 
-import java.util.List;
-import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
+/**
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ */
 @ExtendWith(MockitoExtension.class)
 class DestinationTopicPropertiesFactoryTest {
 
@@ -37,7 +58,7 @@ class DestinationTopicPropertiesFactoryTest {
 			.retryOn(IllegalArgumentException.class).build();
 
 	@Mock
-	private KafkaOperations kafkaOperations;
+	private KafkaOperations<?, ?> kafkaOperations;
 
 	@BeforeEach
 	void setup() {
@@ -154,6 +175,52 @@ class DestinationTopicPropertiesFactoryTest {
 		assertEquals(dltSuffix, dltProperties.suffix());
 		assertTrue(dltProperties.isDltTopic());
 		DestinationTopic dltTopic = destinationTopicList.get(2);
+		assertEquals(0, dltTopic.getDestinationDelay());
+		assertEquals(numPartitions, dltTopic.getDestinationPartitions());
+	}
+
+	@Test
+	void shouldCreateRetryPropertiesForFixedBackoffWithMultiTopicStrategy() {
+
+		// when
+		FixedBackOffPolicy backOffPolicy = new FixedBackOffPolicy();
+		backOffPolicy.setBackOffPeriod(5000);
+		int maxAttempts = 3;
+
+		List<DestinationTopic.Properties> propertiesList =
+				new DestinationTopicPropertiesFactory(retryTopicSuffix, dltSuffix, maxAttempts,
+						backOffPolicy, classifier, numPartitions, kafkaOperations,
+						RetryTopicConfiguration.FixedDelayTopicStrategy.MULTIPLE_TOPICS,
+						dltProcessingFailureStrategy).createProperties();
+
+		List<DestinationTopic> destinationTopicList = propertiesList
+				.stream()
+				.map(properties -> new DestinationTopic("mainTopic" + properties.suffix(), properties))
+				.collect(Collectors.toList());
+
+		// then
+		assertTrue(propertiesList.size() == 4);
+
+		DestinationTopic.Properties mainTopicProperties = propertiesList.get(0);
+		DestinationTopic mainDestinationTopic = destinationTopicList.get(0);
+		assertTrue(mainDestinationTopic.isMainTopic());
+
+		DestinationTopic.Properties firstRetryProperties = propertiesList.get(1);
+		assertEquals(retryTopicSuffix + "-0", firstRetryProperties.suffix());
+		DestinationTopic retryDestinationTopic = destinationTopicList.get(1);
+		assertFalse(retryDestinationTopic.isSingleTopicRetry());
+		assertEquals(5000, retryDestinationTopic.getDestinationDelay());
+
+		DestinationTopic.Properties secondRetryProperties = propertiesList.get(2);
+		assertEquals(retryTopicSuffix + "-1", secondRetryProperties.suffix());
+		DestinationTopic secondRetryDestinationTopic = destinationTopicList.get(2);
+		assertFalse(secondRetryDestinationTopic.isSingleTopicRetry());
+		assertEquals(5000, secondRetryDestinationTopic.getDestinationDelay());
+
+		DestinationTopic.Properties dltProperties = propertiesList.get(3);
+		assertEquals(dltSuffix, dltProperties.suffix());
+		assertTrue(dltProperties.isDltTopic());
+		DestinationTopic dltTopic = destinationTopicList.get(3);
 		assertEquals(0, dltTopic.getDestinationDelay());
 		assertEquals(numPartitions, dltTopic.getDestinationPartitions());
 	}

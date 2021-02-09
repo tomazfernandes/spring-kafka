@@ -1,9 +1,35 @@
+/*
+ * Copyright 2018-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.BDDMockito.given;
+
+import java.lang.reflect.Method;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
@@ -16,15 +42,10 @@ import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopic;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.util.ReflectionUtils;
 
-import java.lang.reflect.Method;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
-
+/**
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ */
 @ExtendWith(MockitoExtension.class)
 class RetryableTopicAnnotationProcessorTest {
 
@@ -55,7 +76,8 @@ class RetryableTopicAnnotationProcessorTest {
 	private Object createBean() {
 		try {
 			return RetryableTopicAnnotationFactory.class.getDeclaredConstructor().newInstance();
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -64,11 +86,11 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldGetDltHandlerMethod() {
 
 		// setup
-		when(beanFactory.getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
-				.thenReturn(kafkaOperationsFromDefaultName);
+		given(beanFactory.getBean(RetryTopicInternalBeanNames.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
+				.willReturn(kafkaOperationsFromDefaultName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when
+		// given
 		RetryTopicConfiguration configuration = processor
 				.processAnnotation(topics, listenWithRetryAndDlt, annotationWithDlt, beanWithDlt);
 
@@ -84,10 +106,10 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldGetLoggingDltHandlerMethod() {
 
 		// setup
-		when(beanFactory.getBean(kafkaTemplateName, KafkaOperations.class)).thenReturn(kafkaOperationsFromTemplateName);
+		given(beanFactory.getBean(kafkaTemplateName, KafkaOperations.class)).willReturn(kafkaOperationsFromTemplateName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when
+		// given
 		RetryTopicConfiguration configuration = processor.processAnnotation(topics, listenWithRetry, annotation, bean);
 
 		// then
@@ -103,10 +125,10 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldThrowIfProvidedKafkaTemplateNotFound() {
 
 		// setup
-		when(this.beanFactory.getBean(kafkaTemplateName, KafkaOperations.class)).thenThrow(NoSuchBeanDefinitionException.class);
+		given(this.beanFactory.getBean(kafkaTemplateName, KafkaOperations.class)).willThrow(NoSuchBeanDefinitionException.class);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when - then
+		// given - then
 		assertThrows(BeanInitializationException.class, () ->
 				processor.processAnnotation(topics, listenWithRetry, annotation, bean));
 	}
@@ -115,11 +137,11 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldThrowIfNoKafkaTemplateFound() {
 
 		// setup
-		when(this.beanFactory.getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
-				.thenThrow(NoSuchBeanDefinitionException.class);
+		given(this.beanFactory.getBean(RetryTopicInternalBeanNames.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
+				.willThrow(NoSuchBeanDefinitionException.class);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when - then
+		// given - then
 		assertThrows(BeanInitializationException.class, () ->
 				processor.processAnnotation(topics, listenWithRetryAndDlt, annotationWithDlt, beanWithDlt));
 	}
@@ -128,11 +150,11 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldGetKafkaTemplateFromBeanName() {
 
 		// setup
-		when(this.beanFactory.getBean(this.kafkaTemplateName, KafkaOperations.class))
-				.thenReturn(kafkaOperationsFromTemplateName);
+		given(this.beanFactory.getBean(this.kafkaTemplateName, KafkaOperations.class))
+				.willReturn(kafkaOperationsFromTemplateName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when - then
+		// given - then
 		RetryTopicConfiguration configuration = processor.processAnnotation(topics, listenWithRetry, annotation, bean);
 		DestinationTopic.Properties properties = configuration.getDestinationTopicProperties().get(0);
 		DestinationTopic destinationTopic = new DestinationTopic("", properties);
@@ -143,11 +165,11 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldGetKafkaTemplateFromDefaultBeanName() {
 
 		// setup
-		when(this.beanFactory.getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
-				.thenReturn(kafkaOperationsFromDefaultName);
+		given(this.beanFactory.getBean(RetryTopicInternalBeanNames.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
+				.willReturn(kafkaOperationsFromDefaultName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when
+		// given
 		RetryTopicConfiguration configuration = processor
 				.processAnnotation(topics, listenWithRetryAndDlt, annotationWithDlt, beanWithDlt);
 
@@ -161,11 +183,11 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldCreateExponentialBackoff() {
 
 		// setup
-		when(this.beanFactory.getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
-				.thenReturn(kafkaOperationsFromDefaultName);
+		given(this.beanFactory.getBean(RetryTopicInternalBeanNames.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
+				.willReturn(kafkaOperationsFromDefaultName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when
+		// given
 		RetryTopicConfiguration configuration = processor
 				.processAnnotation(topics, listenWithRetryAndDlt, annotationWithDlt, beanWithDlt);
 
@@ -186,11 +208,11 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldSetAbort() {
 
 		// setup
-		when(this.beanFactory.getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
-				.thenReturn(kafkaOperationsFromDefaultName);
+		given(this.beanFactory.getBean(RetryTopicInternalBeanNames.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class))
+				.willReturn(kafkaOperationsFromDefaultName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when
+		// given
 		RetryTopicConfiguration configuration = processor
 				.processAnnotation(topics, listenWithRetryAndDlt, annotationWithDlt, beanWithDlt);
 
@@ -211,11 +233,11 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldCreateFixedBackoff() {
 
 		// setup
-		when(this.beanFactory.getBean(kafkaTemplateName, KafkaOperations.class))
-				.thenReturn(kafkaOperationsFromTemplateName);
+		given(this.beanFactory.getBean(kafkaTemplateName, KafkaOperations.class))
+				.willReturn(kafkaOperationsFromTemplateName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
-		// when
+		// given
 		RetryTopicConfiguration configuration = processor
 				.processAnnotation(topics, listenWithRetry, annotation, bean);
 

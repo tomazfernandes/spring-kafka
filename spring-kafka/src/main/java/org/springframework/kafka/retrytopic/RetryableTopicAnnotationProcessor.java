@@ -44,23 +44,13 @@ import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
-
 /**
  *
- * Attempts to provide an instance of {@link RetryTopicConfigurer} by either creating one
- * from a {@link RetryableTopic} annotation first, or from the provided {@link BeanFactory} if no annotation
- * is available.
- *
- * If beans are found in the container there's a check to determine whether or not
- * the provided topics topics should be handled by any of such instances.
- *
- * If the annotation is provided, a {@link DltHandler} annotated method is looked up.
+ * Processes the provided {@link RetryableTopic} annotation
+ * returning an {@link RetryTopicConfiguration}.
  *
  * @author Tomaz Fernandes
  * @since 2.7.0
- * @see RetryTopicConfigurer
- * @see RetryableTopic
- * @see DltHandler
  *
  */
 public class RetryableTopicAnnotationProcessor {
@@ -166,7 +156,7 @@ public class RetryableTopicAnnotationProcessor {
 			}
 		}
 		try {
-			return this.beanFactory.getBean(RetryTopicConfigUtils.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class);
+			return this.beanFactory.getBean(RetryTopicInternalBeanNames.DEFAULT_KAFKA_TEMPLATE_BEAN_NAME, KafkaOperations.class);
 		}
 		catch (NoSuchBeanDefinitionException ex) {
 			throw new BeanInitializationException("Could not find a KafkaTemplate to configure the retry topics.", ex);

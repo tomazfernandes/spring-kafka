@@ -1,4 +1,30 @@
+/*
+ * Copyright 2018-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic;
+
+import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -8,6 +34,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,19 +59,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-import java.time.Clock;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import static java.util.Arrays.asList;
-import static org.assertj.core.api.Assertions.fail;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * @author tomazlemos
- * @since 23/01/21
+ * @author Tomaz Fernandes
+ * @since 2.7.0
  */
 @SpringJUnitConfig
 @DirtiesContext
@@ -103,7 +121,8 @@ public class RetryableTopicIntegrationTests {
 	private boolean awaitLatch(CountDownLatch latch) {
 		try {
 			return latch.await(60, TimeUnit.SECONDS);
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			fail(e.getMessage());
 			throw new RuntimeException(e);
 		}
@@ -248,7 +267,7 @@ public class RetryableTopicIntegrationTests {
 			return RetryTopicConfigurer
 					.builder()
 					.exponentialBackoff(1000, 2, 10000)
-					.retryOn(asList(IllegalStateException.class, IllegalAccessException.class))
+					.retryOn(Arrays.asList(IllegalStateException.class, IllegalAccessException.class))
 					.traversingCauses()
 					.includeTopic(SECOND_TOPIC)
 					.abortOnDltFailure()
@@ -291,12 +310,12 @@ public class RetryableTopicIntegrationTests {
 	@Configuration
 	public static class RuntimeConfig {
 
-		@Bean(name = RetryTopicConfigUtils.INTERNAL_BACKOFF_CLOCK_NAME)
+		@Bean(name = RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_NAME)
 		public Clock clock() {
 			return Clock.systemUTC();
 		}
 
-		@Bean(name = RetryTopicConfigUtils.KAFKA_CONSUMER_BACKOFF_MANAGER)
+		@Bean(name = RetryTopicInternalBeanNames.KAFKA_CONSUMER_BACKOFF_MANAGER)
 		public NoBackOffConsumerManager backoffManager(KafkaListenerEndpointRegistry registry, Clock clock) {
 			return new NoBackOffConsumerManager(registry, clock);
 		}
@@ -304,7 +323,7 @@ public class RetryableTopicIntegrationTests {
 
 	static class NoBackOffConsumerManager extends KafkaConsumerBackoffManager {
 
-		public NoBackOffConsumerManager(KafkaListenerEndpointRegistry registry, Clock clock) {
+		NoBackOffConsumerManager(KafkaListenerEndpointRegistry registry, Clock clock) {
 			super(registry, clock);
 		}
 

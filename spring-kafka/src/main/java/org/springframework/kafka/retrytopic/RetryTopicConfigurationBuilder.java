@@ -16,6 +16,9 @@
 
 package org.springframework.kafka.retrytopic;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.classify.BinaryExceptionClassifier;
 import org.springframework.classify.BinaryExceptionClassifierBuilder;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -32,21 +35,13 @@ import org.springframework.retry.backoff.SleepingBackOffPolicy;
 import org.springframework.retry.backoff.UniformRandomBackOffPolicy;
 import org.springframework.util.Assert;
 
-import java.util.ArrayList;
-import java.util.List;
-
-
 /**
  *
- * Builder class to instantiate the RetryTopicConfigurer.
- *
- * Refer to {@link RetryTopicConfigurer} and {@link org.springframework.kafka.annotation.RetryableTopic} for more details.
+ * Builder class to create {@link RetryTopicConfiguration} instances.
  *
  * @author Tomaz Fernandes
  * @since 2.7.0
  *
- * @see RetryTopicConfigurer
- * @see org.springframework.kafka.annotation.RetryableTopic
  */
 public class RetryTopicConfigurationBuilder {
 	private int maxAttempts = BackOffValuesGenerator.NOT_SET;
@@ -124,7 +119,7 @@ public class RetryTopicConfigurationBuilder {
 	}
 
 	public RetryTopicConfigurationBuilder exponentialBackoff(long initialInterval, double multiplier, long maxInterval,
-															 boolean withRandom) {
+															boolean withRandom) {
 		Assert.isNull(this.backOffPolicy, "You have already selected backoff policy");
 		Assert.isTrue(initialInterval >= 1, "Initial interval should be >= 1");
 		Assert.isTrue(multiplier > 1, "Multiplier should be > 1");

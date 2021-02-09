@@ -16,18 +16,17 @@
 
 package org.springframework.kafka.annotation;
 
-import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
-import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
-import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopic;
-import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicPropertiesFactory;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.policy.MaxAttemptsRetryPolicy;
-
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
+import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
+import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicPropertiesFactory;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.policy.MaxAttemptsRetryPolicy;
 
 /**
  *

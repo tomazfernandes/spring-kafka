@@ -16,26 +16,26 @@
 
 package org.springframework.kafka.listener;
 
-import org.apache.commons.logging.LogFactory;
-import org.apache.kafka.common.TopicPartition;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationListener;
-import org.springframework.core.log.LogAccessor;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
-import org.springframework.kafka.retrytopic.RetryTopicConfigUtils;
-import org.springframework.kafka.retrytopic.RetryTopicHeaders;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.logging.LogFactory;
+import org.apache.kafka.common.TopicPartition;
+
+import org.springframework.context.ApplicationListener;
+import org.springframework.core.log.LogAccessor;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
+import org.springframework.kafka.retrytopic.RetryTopicHeaders;
+
 /**
  *
- * A manager that backs off consumption for a given topic if the timestamp provided is not due. Use with {@link SeekToCurrentErrorHandler}
- * to guarantee that the message is read again after partition consumption is resumed (or seek it manually by other means).
+ * A manager that backs off consumption for a given topic if the timestamp provided is not due.
+ * Use with {@link SeekToCurrentErrorHandler} to guarantee that the message is read again after
+ * partition consumption is resumed (or seek it manually by other means).
  *
  * @author Tomaz Fernandes
  * @since 2.7.0
@@ -50,14 +50,14 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	private final Clock clock;
 
 	public KafkaConsumerBackoffManager(KafkaListenerEndpointRegistry registry,
-									   @Qualifier(RetryTopicConfigUtils.INTERNAL_BACKOFF_CLOCK_NAME) Clock clock) {
+									Clock clock) {
 		this.registry = registry;
 		this.clock = clock;
 		this.backOffTimes = new HashMap<>();
 	}
 
 	public void maybeBackoff(Context context) {
-		long backoffTime = ChronoUnit.MILLIS.between(LocalDateTime.now(clock), context.dueTimestamp);
+		long backoffTime = ChronoUnit.MILLIS.between(LocalDateTime.now(this.clock), context.dueTimestamp);
 		if (backoffTime > 0) {
 			pauseConsumptionAndThrow(context, backoffTime);
 		}
@@ -80,7 +80,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	@Override
 	public void onApplicationEvent(ListenerContainerPartitionIdleEvent partitionIdleEvent) {
 		Context context = getBackoff(partitionIdleEvent.getTopicPartition());
-		if (context == null || LocalDateTime.now(clock).isBefore(context.dueTimestamp)) {
+		if (context == null || LocalDateTime.now(this.clock).isBefore(context.dueTimestamp)) {
 			return;
 		}
 		MessageListenerContainer container = getListenerContainerFromContext(context);
@@ -127,7 +127,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		 */
 		final TopicPartition topicPartition;
 
-		private Context(LocalDateTime dueTimestamp, String listenerId, TopicPartition topicPartition) {
+		Context(LocalDateTime dueTimestamp, String listenerId, TopicPartition topicPartition) {
 			this.dueTimestamp = dueTimestamp;
 			this.listenerId = listenerId;
 			this.topicPartition = topicPartition;

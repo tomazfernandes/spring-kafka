@@ -16,17 +16,19 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
-import org.springframework.kafka.core.KafkaOperations;
-
 import java.util.Map;
+
+import org.springframework.kafka.core.KafkaOperations;
 
 /**
  *
- * Contains the methods used by the {@link org.springframework.kafka.listener.DeadLetterPublishingRecoverer} to
- * resolve the destination topics and backoff header.
+ * Contains methods for resolving the destination to which a message that failed
+ * to be processed should be forwarded to, based on the current topic, the attempt
+ * and the thrown exception.
  *
  * @author Tomaz Fernandes
  * @since 2.7.0
+ *
  */
 public interface DestinationTopicResolver {
 
@@ -39,7 +41,7 @@ public interface DestinationTopicResolver {
 		return new DestinationsHolder(sourceDestination, nextDestination);
 	}
 
-	static class DestinationsHolder {
+	class DestinationsHolder {
 		private final DestinationTopic sourceDestination;
 		private final DestinationTopic nextDestination;
 
@@ -49,11 +51,11 @@ public interface DestinationTopicResolver {
 		}
 
 		protected DestinationTopic getNextDestination() {
-			return nextDestination;
+			return this.nextDestination;
 		}
 
 		protected DestinationTopic getSourceDestination() {
-			return sourceDestination;
+			return this.sourceDestination;
 		}
 	}
 }

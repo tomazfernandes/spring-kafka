@@ -16,19 +16,18 @@
 
 package org.springframework.kafka.retrytopic.destinationtopic;
 
-import org.springframework.kafka.core.KafkaOperations;
-import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
-
 import java.util.Objects;
 import java.util.function.BiPredicate;
 
+import org.springframework.kafka.core.KafkaOperations;
+import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
+
 /**
  *
- * This class represents a Destination Topic to which messages can be forwarded, such as retry topics and dlt.
+ * Representation a Destination Topic to which messages can be forwarded, such as retry topics and dlt.
  *
  * @author Tomaz Fernandes
  * @since 2.7.0
- * @see DestinationTopic
  *
  */
 public class DestinationTopic {
@@ -54,25 +53,25 @@ public class DestinationTopic {
 		return this.properties.numPartitions;
 	}
 
-
 	public boolean isAlwaysRetryOnDltFailure() {
 		return RetryTopicConfiguration.DltProcessingFailureStrategy.ALWAYS_RETRY
-				.equals(properties.dltProcessingFailureStrategy);
+				.equals(this.properties.dltProcessingFailureStrategy);
 	}
+
 	public boolean isDltTopic() {
-		return Type.DLT.equals(properties.type);
+		return Type.DLT.equals(this.properties.type);
 	}
 
 	public boolean isNoOpsTopic() {
-		return Type.NO_OPS.equals(properties.type);
+		return Type.NO_OPS.equals(this.properties.type);
 	}
 
 	public boolean isSingleTopicRetry() {
-		return Type.SINGLE_TOPIC_RETRY.equals(properties.type);
+		return Type.SINGLE_TOPIC_RETRY.equals(this.properties.type);
 	}
 
 	public boolean isMainTopic() {
-		return Type.MAIN.equals(properties.type);
+		return Type.MAIN.equals(this.properties.type);
 	}
 
 	public String getDestinationName() {
@@ -89,15 +88,19 @@ public class DestinationTopic {
 
 	@Override
 	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
 		DestinationTopic that = (DestinationTopic) o;
-		return destinationName.equals(that.destinationName) && properties.equals(that.properties);
+		return this.destinationName.equals(that.destinationName) && this.properties.equals(that.properties);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(destinationName, properties);
+		return Objects.hash(this.destinationName, this.properties);
 	}
 
 	public static class Properties {
@@ -111,10 +114,10 @@ public class DestinationTopic {
 		private final BiPredicate<Integer, Exception> shouldRetryOn;
 
 		public Properties(long delayMs, String suffix, Type type,
-						  int maxAttempts, int numPartitions,
-						  RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy,
-						  KafkaOperations<?, ?> kafkaOperations,
-						  BiPredicate<Integer, Exception> shouldRetryOn) {
+						int maxAttempts, int numPartitions,
+						RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy,
+						KafkaOperations<?, ?> kafkaOperations,
+						BiPredicate<Integer, Exception> shouldRetryOn) {
 			this.delayMs = delayMs;
 			this.suffix = suffix;
 			this.type = type;
@@ -142,24 +145,35 @@ public class DestinationTopic {
 		}
 
 		public String suffix() {
-			return suffix;
+			return this.suffix;
 		}
 
 		public long delay() {
-			return delayMs;
+			return this.delayMs;
 		}
 
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
 			Properties that = (Properties) o;
-			return delayMs == that.delayMs && maxAttempts == that.maxAttempts && numPartitions == that.numPartitions && suffix.equals(that.suffix) && type == that.type && dltProcessingFailureStrategy == that.dltProcessingFailureStrategy && kafkaOperations.equals(that.kafkaOperations);
+			return this.delayMs == that.delayMs
+					&& this.maxAttempts == that.maxAttempts
+					&& this.numPartitions == that.numPartitions
+					&& this.suffix.equals(that.suffix)
+					&& this.type == that.type
+					&& this.dltProcessingFailureStrategy == that.dltProcessingFailureStrategy
+					&& this.kafkaOperations.equals(that.kafkaOperations);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(delayMs, suffix, type, maxAttempts, numPartitions, dltProcessingFailureStrategy, kafkaOperations);
+			return Objects.hash(this.delayMs, this.suffix, this.type, this.maxAttempts, this.numPartitions,
+					this.dltProcessingFailureStrategy, this.kafkaOperations);
 		}
 	}
 

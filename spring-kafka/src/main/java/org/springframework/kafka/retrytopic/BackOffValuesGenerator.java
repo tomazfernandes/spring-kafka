@@ -31,8 +31,9 @@ import org.springframework.retry.backoff.SleepingBackOffPolicy;
 import org.springframework.retry.support.RetrySynchronizationManager;
 
 /**
- * Generates the backoff values by injecting a {@link BackoffRetainerSleeper}
- * to the provided {@link BackOffPolicy} and calling the backoff method.
+ *
+ * Generates the backoff values from the provided maxAttempts value and
+ * {@link BackOffPolicy}.
  *
  * @author Tomaz Fernandes
  * @since 2.7.0

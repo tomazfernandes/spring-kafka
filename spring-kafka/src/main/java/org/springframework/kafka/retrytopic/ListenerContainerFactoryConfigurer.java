@@ -16,6 +16,10 @@
 
 package org.springframework.kafka.retrytopic;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Consumer;
+
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.listener.AcknowledgingConsumerAwareMessageListener;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
@@ -28,10 +32,21 @@ import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListen
 import org.springframework.util.Assert;
 import org.springframework.util.backoff.FixedBackOff;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.Consumer;
-
+/**
+ *
+ * Configures the provided {@link ConcurrentKafkaListenerContainerFactory} with
+ * a {@link SeekToCurrentErrorHandler}, the {@link DeadLetterPublishingRecoverer} created
+ * by the {@link DeadLetterPublishingRecovererFactory}.
+ *
+ * Mind that the same factory can be used by many different
+ * {@link org.springframework.kafka.annotation.RetryableTopic}s
+ * but should not be shared with non retryable topics as some of
+ * their configurations will be overriden.
+ *
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ *
+ */
 public class ListenerContainerFactoryConfigurer {
 
 	private static Set<ConcurrentKafkaListenerContainerFactory<?, ?>> configuredFactoriesCache;
@@ -44,15 +59,17 @@ public class ListenerContainerFactoryConfigurer {
 	private final static String INTERNAL_KAFKA_CONSUMER_BACKOFF_BEAN_NAME = "kafkaconsumerbackoff-internal";
 	private final static long DEFAULT_IDLE_PARTITION_EVENT_INTERVAL = 1000L;
 	private final DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory;
-	private Consumer<ConcurrentMessageListenerContainer<?, ?>> containerCustomizer = container -> {};
-	private Consumer<ErrorHandler> errorHandlerCustomizer = errorHandler -> {};
+	private Consumer<ConcurrentMessageListenerContainer<?, ?>> containerCustomizer = container -> { };
+	private Consumer<ErrorHandler> errorHandlerCustomizer = errorHandler -> { };
 
-	ListenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager, DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory) {
+	ListenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
+									DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory) {
 		this.kafkaConsumerBackoffManager = kafkaConsumerBackoffManager;
 		this.deadLetterPublishingRecovererFactory = deadLetterPublishingRecovererFactory;
 	}
 
-	ConcurrentKafkaListenerContainerFactory<?, ?> configure(ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, DeadLetterPublishingRecovererFactory.Configuration configuration) {
+	ConcurrentKafkaListenerContainerFactory<?, ?> configure(ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory,
+															DeadLetterPublishingRecovererFactory.Configuration configuration) {
 		if (existsInCache(containerFactory)) {
 			return containerFactory;
 		}
@@ -84,26 +101,29 @@ public class ListenerContainerFactoryConfigurer {
 	}
 
 	private ErrorHandler createErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
-		SeekToCurrentErrorHandler errorHandler = new SeekToCurrentErrorHandler(deadLetterPublishingRecoverer, new FixedBackOff(0, 0));
+		SeekToCurrentErrorHandler errorHandler = new SeekToCurrentErrorHandler(deadLetterPublishingRecoverer,
+				new FixedBackOff(0, 0));
 		errorHandler.setCommitRecovered(true);
-		errorHandlerCustomizer.accept(errorHandler);
+		this.errorHandlerCustomizer.accept(errorHandler);
 		return errorHandler;
 	}
 
 	private void setupBackoffAwareMessageListenerAdapter(ConcurrentMessageListenerContainer<?, ?> container) {
-		AcknowledgingConsumerAwareMessageListener<?, ?> listener = checkAndCast(container.getContainerProperties().getMessageListener(),
-				AcknowledgingConsumerAwareMessageListener.class);
+		AcknowledgingConsumerAwareMessageListener<?, ?> listener = checkAndCast(container.getContainerProperties()
+						.getMessageListener(), AcknowledgingConsumerAwareMessageListener.class);
 		if (container.getContainerProperties().getIdlePartitionEventInterval() == null) {
 			container.getContainerProperties().setIdlePartitionEventInterval(DEFAULT_IDLE_PARTITION_EVENT_INTERVAL);
 		}
-		container.setupMessageListener(new KafkaBackoffAwareMessageListenerAdapter<>(listener, this.kafkaConsumerBackoffManager, container.getListenerId()));
-		containerCustomizer.accept(container);
+		container.setupMessageListener(new KafkaBackoffAwareMessageListenerAdapter<>(listener,
+				this.kafkaConsumerBackoffManager, container.getListenerId()));
+		this.containerCustomizer.accept(container);
 	}
 
 	@SuppressWarnings("unchecked")
 	private <T> T checkAndCast(Object obj, Class<T> clazz) {
 		Assert.isAssignable(clazz, obj.getClass(),
-				() -> String.format("The provided class %s is not assignable from %s", obj.getClass().getSimpleName(), clazz.getSimpleName()));
+				() -> String.format("The provided class %s is not assignable from %s",
+						obj.getClass().getSimpleName(), clazz.getSimpleName()));
 		return (T) obj;
 	}
 }

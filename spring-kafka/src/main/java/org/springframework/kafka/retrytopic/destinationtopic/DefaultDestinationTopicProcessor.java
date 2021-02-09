@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017-2021 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springframework.kafka.retrytopic.destinationtopic;
 
 import java.util.ArrayList;
@@ -9,8 +25,12 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * @author tomazlemos
- * @since 23/01/21
+ *
+ * Default implementation of the {@link DestinationTopicProcessor} interface.
+ *
+ * @author Tomaz Fernandes
+ * @since 2.7.0
+ *
  */
 public class DefaultDestinationTopicProcessor implements DestinationTopicProcessor {
 
@@ -22,7 +42,8 @@ public class DefaultDestinationTopicProcessor implements DestinationTopicProcess
 	}
 
 	@Override
-	public void processDestinationProperties(Consumer<DestinationTopic.Properties> destinationPropertiesProcessor, Context context) {
+	public void processDestinationProperties(Consumer<DestinationTopic.Properties> destinationPropertiesProcessor,
+											Context context) {
 		context
 				.properties
 				.stream()
@@ -31,7 +52,7 @@ public class DefaultDestinationTopicProcessor implements DestinationTopicProcess
 
 	@Override
 	public void registerDestinationTopic(String mainTopicName, String destinationTopicName,
-										 DestinationTopic.Properties destinationTopicProperties, Context context) {
+										DestinationTopic.Properties destinationTopicProperties, Context context) {
 		List<DestinationTopic> topicDestinations = context.destinationsByTopicMap
 				.computeIfAbsent(mainTopicName, newTopic -> new ArrayList<>());
 		topicDestinations.add(new DestinationTopic(destinationTopicName, destinationTopicProperties));
@@ -45,17 +66,19 @@ public class DefaultDestinationTopicProcessor implements DestinationTopicProcess
 				.map(this::correlatePairSourceAndDestinationValues)
 				.reduce(this::concatenateMaps)
 				.orElseThrow(() -> new IllegalStateException("No destinations where provided for the Retry Topic configuration"));
-		destinationTopicResolver.addDestinations(sourceDestinationMapForThisInstance);
+		this.destinationTopicResolver.addDestinations(sourceDestinationMapForThisInstance);
 		topicsCallback.accept(getAllTopicsNamesForThis(context));
 	}
 
-	private Map<String, DestinationTopicResolver.DestinationsHolder> concatenateMaps(Map<String, DestinationTopicResolver.DestinationsHolder> firstMap,
-																					 Map<String, DestinationTopicResolver.DestinationsHolder> secondMap) {
+	private Map<String, DestinationTopicResolver.DestinationsHolder> concatenateMaps(
+												Map<String, DestinationTopicResolver.DestinationsHolder> firstMap,
+												Map<String, DestinationTopicResolver.DestinationsHolder> secondMap) {
 		firstMap.putAll(secondMap);
 		return firstMap;
 	}
 
-	private Map<String, DestinationTopicResolver.DestinationsHolder> correlatePairSourceAndDestinationValues(List<DestinationTopic> destinationList) {
+	private Map<String, DestinationTopicResolver.DestinationsHolder> correlatePairSourceAndDestinationValues(
+												List<DestinationTopic> destinationList) {
 		return IntStream
 				.range(0, destinationList.size())
 				.boxed()
