@@ -60,6 +60,7 @@ import org.springframework.kafka.support.Acknowledgment;
  * @since 2.7.0
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"unchecked", "rawtypes"})
 class ListenerContainerFactoryConfigurerTest {
 
 	@Mock
@@ -75,9 +76,6 @@ class ListenerContainerFactoryConfigurerTest {
 	DeadLetterPublishingRecoverer recoverer;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
-
-	@Mock
 	ContainerProperties containerProperties;
 
 	@Captor
@@ -91,7 +89,7 @@ class ListenerContainerFactoryConfigurerTest {
 	Consumer<?, ?> consumer;
 
 	@Mock
-	ConcurrentMessageListenerContainer container;
+	ConcurrentMessageListenerContainer<?, ?> container;
 
 	@Mock
 	OffsetCommitCallback offsetCommitCallback;
@@ -99,15 +97,20 @@ class ListenerContainerFactoryConfigurerTest {
 	@Mock
 	java.util.function.Consumer<ErrorHandler> errorHandlerCustomizer;
 
+	@SuppressWarnings("rawtypes")
 	@Captor
 	ArgumentCaptor<ContainerCustomizer> containerCustomizerCaptor;
 
 	@Mock
-	AcknowledgingConsumerAwareMessageListener listener;
+	ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
+
+	@Mock
+	AcknowledgingConsumerAwareMessageListener<?, ?> listener;
 
 	@Captor
-	ArgumentCaptor<AbstractDelegatingMessageListenerAdapter> listenerAdapterCaptor;
+	ArgumentCaptor<AbstractDelegatingMessageListenerAdapter<?>> listenerAdapterCaptor;
 
+	@SuppressWarnings("rawtypes")
 	@Mock
 	ConsumerRecord data;
 
@@ -227,12 +230,14 @@ class ListenerContainerFactoryConfigurerTest {
 		ConcurrentKafkaListenerContainerFactory<?, ?> factory = configurer.configure(containerFactory, recovererConfiguration);
 
 		// then
-		then(containerFactory).should(times(1)).setContainerCustomizer(containerCustomizerCaptor.capture());
+		then(containerFactory)
+				.should(times(1))
+				.setContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
 		then(container).should(times(1)).setupMessageListener(listenerAdapterCaptor.capture());
-		KafkaBackoffAwareMessageListenerAdapter listenerAdapter = (KafkaBackoffAwareMessageListenerAdapter) listenerAdapterCaptor.getValue();
+		KafkaBackoffAwareMessageListenerAdapter<?, ?> listenerAdapter = (KafkaBackoffAwareMessageListenerAdapter<?, ?>) listenerAdapterCaptor.getValue();
 		listenerAdapter.onMessage(data, ack, consumer);
 
 		then(this.kafkaConsumerBackoffManager).should(times(1))

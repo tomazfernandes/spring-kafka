@@ -54,6 +54,7 @@ import org.springframework.util.concurrent.ListenableFuture;
  * @since 2.7.0
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"unchecked", "rawtypes"})
 class DeadLetterPublishingRecovererFactoryTest {
 
 	private final Clock clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault());
@@ -66,22 +67,22 @@ class DeadLetterPublishingRecovererFactoryTest {
 
 	private final Object key = new Object();
 	private final Object value = new Object();
-	ConsumerRecord<Object, Object> consumerRecord = new ConsumerRecord(testTopic, 2, 0, key, value);
+	ConsumerRecord<?, ?> consumerRecord = new ConsumerRecord<>(testTopic, 2, 0, key, value);
 
 	@Mock
 	DestinationTopic destinationTopic;
 
 	@Mock
-	KafkaOperations<Object, Object> kafkaOperations;
+	KafkaOperations<?, ?> kafkaOperations;
 
 	@Mock
-	KafkaOperations<Object, Object> kafkaOperations2;
+	KafkaOperations<?, ?> kafkaOperations2;
 
 	@Mock
-	ListenableFuture listenableFuture;
+	ListenableFuture<?> listenableFuture;
 
 	@Captor
-	private ArgumentCaptor<ProducerRecord<Object, Object>> producerRecordCaptor;
+	private ArgumentCaptor<ProducerRecord> producerRecordCaptor;
 
 	@Test
 	void shouldSendMessage() {

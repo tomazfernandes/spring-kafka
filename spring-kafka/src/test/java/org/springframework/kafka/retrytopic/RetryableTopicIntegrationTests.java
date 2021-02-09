@@ -234,12 +234,14 @@ public class RetryableTopicIntegrationTests {
 		}
 	}
 
+	@SuppressWarnings("serial")
 	public static class MyRetryException extends RuntimeException {
 		public MyRetryException(String msg) {
 			super(msg);
 		}
 	}
 
+	@SuppressWarnings("serial")
 	public static class MyDontRetryException extends RuntimeException {
 		public MyDontRetryException(String msg) {
 			super(msg);
@@ -416,16 +418,5 @@ public class RetryableTopicIntegrationTests {
 			factory.setConcurrency(1);
 			return factory;
 		}
-
-//		@Bean
-//		public RetryTopicConfiguration myRetryableTopic(KafkaTemplate<String, String> template) {
-//			return RetryTopicConfigurer
-//					.builder()
-//					.exponentialBackoff(1000, 2, 10000)
-//					.maxAttempts(4)
-//					.includeTopics(asList("my-topic", "my-other-topic"))
-//					.dltHandlerMethod(MyCustomDltProcessor.class, "processDltMessage")
-//					.create(template);
-//		}
 	}
 }

@@ -150,7 +150,7 @@ class RetryableTopicAnnotationProcessorTest {
 	void shouldGetKafkaTemplateFromBeanName() {
 
 		// setup
-		given(this.beanFactory.getBean(this.kafkaTemplateName, KafkaOperations.class))
+		given(this.beanFactory.getBean(kafkaTemplateName, KafkaOperations.class))
 				.willReturn(kafkaOperationsFromTemplateName);
 		RetryableTopicAnnotationProcessor processor = new RetryableTopicAnnotationProcessor(beanFactory);
 
