@@ -19,7 +19,6 @@ package org.springframework.kafka.retrytopic;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -53,41 +52,53 @@ import org.springframework.util.ReflectionUtils;
 
 /**
  *
- * <p>Configures main, retry and DLT topics based on a main endpoint and provided configurations to acomplish
- * a distributed retry / DLT pattern in a non-blocking fashion, at the expense of ordering guarantees.
+ * <p>Configures main, retry and DLT topics based on a main endpoint and provided
+ * configurations to acomplish a distributed retry / DLT pattern in a non-blocking
+ * fashion, at the expense of ordering guarantees.
  *
- * <p>To illustrate, if you have a "main-topic" topic, and wants a exponential backoff of 1000ms with a multiplier of 2 and 3 retry attempts,
- * it will create the main-topic-retry-1000, main-topic-retry-2000, main-topic-retry-4000 and main-topic-dlt topics.
- * The configuration can be achieved using a {@link RetryTopicConfigurationBuilder} to create one or more {@link RetryTopicConfigurer} beans,
- * or by using the {@link org.springframework.kafka.annotation.RetryableTopic} annotation. More details on the usage below.
+ * <p>To illustrate, if you have a "main-topic" topic, and want an exponential backoff
+ * of 1000ms with a multiplier of 2 and 3 retry attempts, it will create the
+ * main-topic-retry-1000, main-topic-retry-2000, main-topic-retry-4000 and main-topic-dlt
+ * topics. The configuration can be achieved using a {@link RetryTopicConfigurationBuilder}
+ * to create one or more {@link RetryTopicConfigurer} beans, or by using the
+ * {@link org.springframework.kafka.annotation.RetryableTopic} annotation.
+ * More details on usage below.
  *
  *
  * <p>How it works:
  *
- * <p>If a message processing throws an exception, the configured {@link SeekToCurrentErrorHandler} and {@link DeadLetterPublishingRecoverer}
- * forwards the message to the next topic, using a {@link org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicResolver}
+ * <p>If a message processing throws an exception, the configured {@link SeekToCurrentErrorHandler}
+ * and {@link DeadLetterPublishingRecoverer} forwards the message to the next topic, using a
+ * {@link org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicResolver}
  * to know the next topic and the delay for it.
  *
- * <p>Each retried record has a back off timestamp header and, if consumption is attempted by the
- * {@link org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter} before that time, the partition consumption is
- * paused by a {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager} and a
+ * <p>Each forwareded record has a back off timestamp header and, if consumption is
+ * attempted by the {@link org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter}
+ * before that time, the partition consumption is paused by a
+ * {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager} and a
  * {@link org.springframework.kafka.listener.KafkaBackoffException} is thrown.
  *
- * <p>When the partition has been idle for the specified amount of time in the {@link org.springframework.kafka.listener.ContainerProperties#idlePartitionInterval}
- * property, a {@link org.springframework.kafka.event.ListenerContainerPartitionIdleEvent} is published, which the {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager}
+ * <p>When the partition has been idle for the amount of time specified in the
+ * {@link org.springframework.kafka.listener.ContainerProperties#idlePartitionInterval}
+ * property, a {@link org.springframework.kafka.event.ListenerContainerPartitionIdleEvent}
+ * is published, which the {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager}
  * listens to in order to check whether or not it should unpause the partition.
  *
- * <p>If, when consumption is resumed, the processing fails again, the message is forwarded to the next topic and so on, until it gets to the dlt.
+ * <p>If, when consumption is resumed, processing fails again, the message is forwarded to
+ * the next topic and so on, until it gets to the dlt.
  *
- * <p>Considering Kafka's partition ordering guarantees, and each topic having a fixed delay time, we know that the first
- * message consumed in a given retry topic partition will be the one with the earliest backoff timestamp for that partition, so by pausing the partition
- * we know we're not delaying message processing in other partitions longer than necessary.
+ * <p>Considering Kafka's partition ordering guarantees, and each topic having a fixed
+ * delay time, we know that the first message consumed in a given retry topic partition will
+ * be the one with the earliest backoff timestamp for that partition, so by pausing the
+ * partition we know we're not delaying message processing in other partitions longer than
+ * necessary.
  *
  *
  * <p>Usages:
  *
- * <p>There are two main ways for configuring the endpoints. The first is by providing one or more {@link org.springframework.context.annotation.Bean}s
- * in a {@link org.springframework.context.annotation.Configuration} annotated class, such as:
+ * <p>There are two main ways for configuring the endpoints. The first is by providing one or more
+ * {@link org.springframework.context.annotation.Bean}s in a {@link org.springframework.context.annotation.Configuration}
+ * annotated class, such as:
  *
  * <pre>
  *     <code>@Bean</code>
@@ -97,12 +108,12 @@ import org.springframework.util.ReflectionUtils;
  *                 .create(template);
  *      }</code>
  * </pre>
- * <p>This will create retry and dlt topics for all topics in methods annotated with {@link org.springframework.kafka.annotation.KafkaListener},
- * as well as its consumers, using the default configurations. If message processing fails it will forward the message to the next topic
- * until it gets to the DLT topic.
+ * <p>This will create retry and dlt topics for all topics in methods annotated with
+ * {@link org.springframework.kafka.annotation.KafkaListener}, as well as its consumers,
+ * using the default configurations. If message processing fails it will forward the message
+ * to the next topic until it gets to the DLT topic.
  *
- * One or more {@link org.springframework.kafka.core.KafkaTemplate} are required for message forwarding.
- * You can provide more than one instance in a {@link Map} where the Key is the value class that template should handle.
+ * A {@link org.springframework.kafka.core.KafkaOperations} instance is required for message forwarding.
  *
  * <p>For more fine-grained control over how to handle retrials for each topic, more then one bean can be provided, such as:
  *
@@ -129,12 +140,14 @@ import org.springframework.util.ReflectionUtils;
  *                 .create(template);
  *         }</code>
  * </pre>
- * <p>Some other options include: auto-creation of topics (configuring / enabling / disabling),
- * backoff, retryOn / notRetryOn / transversing as in {@link org.springframework.retry.support.RetryTemplate},
- * custom dlt listener beans, custom topic suffixes and providing specific listenerContainerFactories.
+ * <p>Some other options include: auto-creation of topics, backoff,
+ * retryOn / notRetryOn / transversing as in {@link org.springframework.retry.support.RetryTemplate},
+ * single-topic fixed backoff processing, custom dlt listener beans, custom topic
+ * suffixes and providing specific listenerContainerFactories.
  *
- * <p>The other, non-exclusive way to configure the endpoints is through the convenient {@link org.springframework.kafka.annotation.RetryableTopic} annotation,
- * that can be placed on any {@link org.springframework.kafka.annotation.KafkaListener} annotated methods, such as:
+ * <p>The other, non-exclusive way to configure the endpoints is through the convenient
+ * {@link org.springframework.kafka.annotation.RetryableTopic} annotation, that can be placed on any
+ * {@link org.springframework.kafka.annotation.KafkaListener} annotated methods, such as:
  *
  * <pre>
  *     <code>@RetryableTopic(attempts = 3,
@@ -144,14 +157,16 @@ import org.springframework.util.ReflectionUtils;
  *        		// ... message processing
  *     }</code>
  *</pre>
- * <p> The same configurations are available in the annotation and the builder approaches, and both can be used concurrently.
- * In case the same method / topic can be handled by both, the annotation takes precedence.
+ * <p> The same configurations are available in the annotation and the builder approaches, and both can be
+ * used concurrently. In case the same method / topic can be handled by both, the annotation takes precedence.
  *
  * <p>DLT Handling:
  *
- * <p>The DLT handler method can be provided through the {@link RetryTopicConfigurationBuilder#dltHandlerMethod(Class, String)} method,
- * providing the class and method name that should handle the DLT topic. If a bean instance of this type is found in the {@link BeanFactory}
- * it is the instance used. If not an instance is created.
+ * <p>The DLT handler method can be provided through the
+ * {@link RetryTopicConfigurationBuilder#dltHandlerMethod(Class, String)} method,
+ * providing the class and method name that should handle the DLT topic. If a bean
+ * instance of this type is found in the {@link BeanFactory} it is the instance used.
+ * If not an instance is created. The class can use dependency injection as a normal bean.
  *
  * <pre>
  *     <code>@Bean
@@ -171,7 +186,8 @@ import org.springframework.util.ReflectionUtils;
  *     }</code>
  * </pre>
  *
- * The other way to provide the DLT handler method is through the {@link org.springframework.kafka.annotation.DltHandler} annotation,
+ * The other way to provide the DLT handler method is through the
+ * {@link org.springframework.kafka.annotation.DltHandler} annotation,
  * that should be used within the same class as the correspondent {@link KafkaListener}.
  *
  * 	<pre>
