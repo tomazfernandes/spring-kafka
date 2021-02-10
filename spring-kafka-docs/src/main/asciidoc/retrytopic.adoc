@@ -1,13 +1,18 @@
 [[retry-topic]]
 == Non-Blocking Retries
 
-Achieving non-blocking retry / DLT functionality with Kafka usually requires setting up extra topics and creating and configuring the corresponding listeners. Since 2.7 Spring Kafka offers the `@RetryableTopic` annotation and `RetryTopicConfiguration` class to simplify that bootstraping.
+Achieving non-blocking retry / DLT functionality with Kafka usually requires setting up extra topics and creating and configuring the corresponding listeners.
+Since 2.7 Spring Kafka offers the `@RetryableTopic` annotation and `RetryTopicConfiguration` class to simplify that bootstraping.
 
 === How The Pattern Works
 
-If message processing fails the message is forwarded to a retry topic with a back off timestamp. The retry topic consumer then checks the timestamp and if it's not due it pauses the consumption for that topic's partition. When it is due the partition consumption is resumed and the message is consumed again. If the message processing fails again the message will be forwarded to the next retry topic, and the pattern is repeated until a successful processing occurs, or the attempts are exhausted and the message is sent to the Dead Letter Topic.
+If message processing fails the message is forwarded to a retry topic with a back off timestamp.
+The retry topic consumer then checks the timestamp and if it's not due it pauses the consumption for that topic's partition.
+When it is due the partition consumption is resumed and the message is consumed again.
+If the message processing fails again the message will be forwarded to the next retry topic, and the pattern is repeated until a successful processing occurs, or the attempts are exhausted and the message is sent to the Dead Letter Topic.
 
-To illustrate, if you have a "main-topic" topic, and want to setup non-blocking retry with an exponential backoff of 1000ms with a multiplier of 2 and 4 max attempts, it will create the main-topic-retry-1000, main-topic-retry-2000, main-topic-retry-4000 and main-topic-dlt topics and configure the respective consumers. The framework takes care of creating the topics and setting up and configuring the listeners.
+To illustrate, if you have a "main-topic" topic, and want to setup non-blocking retry with an exponential backoff of 1000ms with a multiplier of 2 and 4 max attempts, it will create the main-topic-retry-1000, main-topic-retry-2000, main-topic-retry-4000 and main-topic-dlt topics and configure the respective consumers.
+The framework also takes care of creating the topics and setting up and configuring the listeners.
 
 IMPORTANT: By using this strategy you lose Kafka's ordering guarantees for that topic.
 
@@ -31,7 +36,8 @@ public void processMessage(MyPojo message) {
 ----
 ====
 
-You can specify a method in the same class to process the dlt messages by annotating it with the `@DltHandler` annotation. If no DltHandler method is provided a default consumer is created which only logs the consumption.
+You can specify a method in the same class to process the dlt messages by annotating it with the `@DltHandler` annotation.
+If no DltHandler method is provided a default consumer is created which only logs the consumption.
 
 ====
 [source, java]
@@ -181,7 +187,8 @@ NOTE: The default behavior is creating separate topics for each attempt, suffixe
 
 ==== Exception Classifier
 
-You can specify which exceptions you want to retry on and which not to. You can also set it to traverse the causes to lookup nested exceptions.
+You can specify which exceptions you want to retry on and which not to.
+You can also set it to traverse the causes to lookup nested exceptions.
 
 ====
 [source, java]
@@ -247,7 +254,8 @@ NOTE: The default suffixes are "-retry" and "-dlt", for retry and dlt topics res
 
 You can specify the method used to process the Dlt for the topic, as well as the behaviour if that processing fails.
 
-To do that you can use the `@DltHandler` annotation in a method of the class with the `@RetryableTopic` annotation(s). Note that the same method will be used for all the `@RetryableTopic` annottated methods within that class.
+To do that you can use the `@DltHandler` annotation in a method of the class with the `@RetryableTopic` annotation(s).
+Note that the same method will be used for all the `@RetryableTopic` annottated methods within that class.
 
 ====
 [source, java]
@@ -265,7 +273,8 @@ public void processMessage(MyPojo message) {
 ----
 ====
 
-The DLT handler method can also be provided through the RetryTopicConfigurationBuilder.dltHandlerMethod(Class, String) method, providing the class and method name that should handle the DLT topic. If a bean instance of the provided class is found in the application context that bean is used for Dlt processing, otherwise an instance is created with it's dependencies properly injected.
+The DLT handler method can also be provided through the RetryTopicConfigurationBuilder.dltHandlerMethod(Class, String) method, providing the class and method name that should handle the DLT topic.
+If a bean instance of the provided class is found in the application context that bean is used for Dlt processing, otherwise an instance is created with it's dependencies properly injected.
 
 ====
 [source, java]
@@ -300,7 +309,8 @@ NOTE: If no DLT handler is provided, the default RetryTopicConfigurer.LoggingDlt
 
 Should the Dlt processing fail, there are two possible behaviours available: `ALWAYS_RETRY` and `ABORT`.
 
-In the former the message is forwarded back to the dlt topic so it doesn't block other dlt messages' processing. In the latter the consumer aborts the execution without forwarding the message.
+In the former the message is forwarded back to the dlt topic so it doesn't block other dlt messages' processing.
+In the latter the consumer aborts the execution without forwarding the message.
 
 ====
 [source, java]
@@ -359,7 +369,8 @@ NOTE: The default behavior is to include all topics.
 
 ==== Topics AutoCreation
 
-Unless specified otherwise the framework will auto create the required topics using `NewTopic` beans that are consumed by the `KafkaAdmin` bean. You can specify the number of partitions and the replication factor with which the topics will be created, and you can turn this feature off.
+Unless otherwise specified the framework will auto create the required topics using `NewTopic` beans that are consumed by the `KafkaAdmin` bean.
+You can specify the number of partitions and the replication factor with which the topics will be created, and you can turn this feature off.
 
 IMPORTANT: Note that if you're not using Spring Boot you'll have to provide a KafkaAdmin bean in order to use this feature.
 
