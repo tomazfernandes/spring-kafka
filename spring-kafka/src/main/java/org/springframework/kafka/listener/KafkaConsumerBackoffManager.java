@@ -38,7 +38,7 @@ import org.springframework.kafka.retrytopic.RetryTopicHeaders;
  * partition consumption is resumed (or seek it manually by other means).
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  * @see SeekToCurrentErrorHandler
  */
 public class KafkaConsumerBackoffManager implements ApplicationListener<ListenerContainerPartitionIdleEvent> {

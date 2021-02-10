@@ -24,7 +24,7 @@ import org.apache.kafka.common.TopicPartition;
  * is configured to do so.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 public class ListenerContainerPartitionIdleEvent extends KafkaEvent {
 
@@ -49,7 +49,7 @@ public class ListenerContainerPartitionIdleEvent extends KafkaEvent {
 	 * @param topicPartition the topic/partition.
 	 * @param consumer the consumer.
 	 * @param paused true if the consumer partition is paused.
-	 * @since 2.7.0
+	 * @since 2.7
 	 */
 	public ListenerContainerPartitionIdleEvent(Object source, Object container,
 											long idleTime, String id,

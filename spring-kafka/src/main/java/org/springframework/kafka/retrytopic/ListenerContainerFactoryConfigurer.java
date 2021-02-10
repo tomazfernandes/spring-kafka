@@ -44,7 +44,7 @@ import org.springframework.util.backoff.FixedBackOff;
  * their configurations will be overriden.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class ListenerContainerFactoryConfigurer {

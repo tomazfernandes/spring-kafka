@@ -40,7 +40,7 @@ import org.springframework.util.Assert;
  * forward the messages using the {@link DestinationTopicResolver}.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class DeadLetterPublishingRecovererFactory {

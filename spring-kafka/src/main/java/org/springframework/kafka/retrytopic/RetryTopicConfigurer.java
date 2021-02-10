@@ -79,7 +79,7 @@ import org.springframework.util.ReflectionUtils;
  * {@link org.springframework.kafka.listener.KafkaBackoffException} is thrown.
  *
  * <p>When the partition has been idle for the amount of time specified in the
- * {@link org.springframework.kafka.listener.ContainerProperties#idlePartitionInterval}
+ * {@link org.springframework.kafka.listener.ContainerProperties#idlePartitionEventInterval}
  * property, a {@link org.springframework.kafka.event.ListenerContainerPartitionIdleEvent}
  * is published, which the {@link org.springframework.kafka.listener.KafkaConsumerBackoffManager}
  * listens to in order to check whether or not it should unpause the partition.
@@ -102,8 +102,8 @@ import org.springframework.util.ReflectionUtils;
  *
  * <pre>
  *     <code>@Bean</code>
- *     <code>public RetryTopicConfigurer myRetryableTopic(KafkaTemplate&lt;String, Object&gt; template) {
- *         return RetryTopicConfigurer
+ *     <code>public RetryTopicConfiguration myRetryableTopic(KafkaTemplate&lt;String, Object&gt; template) {
+ *         return RetryTopicConfiguration
  *                 .builder()
  *                 .create(template);
  *      }</code>
@@ -119,8 +119,8 @@ import org.springframework.util.ReflectionUtils;
  *
  * <pre>
  *     <code>@Bean
- *     public RetryTopicConfigurer myRetryableTopic(KafkaTemplate&lt;String, MyPojo&gt; template) {
- *         return RetryTopicConfigurer
+ *     public RetryTopicConfiguration myRetryableTopic(KafkaTemplate&lt;String, MyPojo&gt; template) {
+ *         return RetryTopicConfiguration
  *                 .builder()
  *                 .fixedBackoff(3000)
  *                 .maxAttempts(5)
@@ -130,8 +130,8 @@ import org.springframework.util.ReflectionUtils;
  * </pre>
  * <pre>
  *	   <code>@Bean
- *     public RetryTopicConfigurer myOtherRetryableTopic(KafkaTemplate&lt;String, MyPojo&gt; template) {
- *         return RetryTopicConfigurer
+ *     public RetryTopicConfiguration myOtherRetryableTopic(KafkaTemplate&lt;String, MyPojo&gt; template) {
+ *         return RetryTopicConfiguration
  *                 .builder()
  *                 .exponentialBackoff(1000, 2, 5000)
  *                 .maxAttempts(4)
@@ -170,8 +170,8 @@ import org.springframework.util.ReflectionUtils;
  *
  * <pre>
  *     <code>@Bean
- *     public RetryTopicConfigurer otherRetryTopic(KafkaTemplate&lt;Integer, MyPojo&gt; template) {
- *         return RetryTopicConfigurer
+ *     public RetryTopicConfiguration otherRetryTopic(KafkaTemplate&lt;Integer, MyPojo&gt; template) {
+ *         return RetryTopicConfiguration
  *                 .builder()
  *                 .dltProcessor(MyCustomDltProcessor.class, "processDltMessage")
  *                 .create(template);
@@ -200,7 +200,7 @@ import org.springframework.util.ReflectionUtils;
  * If no DLT handler is provided, the default {@link LoggingDltListenerHandlerMethod} is used.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  * @see RetryTopicConfigurationBuilder
  * @see org.springframework.kafka.annotation.RetryableTopic

@@ -29,7 +29,7 @@ import org.springframework.retry.backoff.NoBackOffPolicy;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 class BackOffValuesGeneratorTest {
 

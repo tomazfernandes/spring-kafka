@@ -22,7 +22,7 @@ import org.apache.kafka.common.TopicPartition;
  * An event published when a consumer partition is paused.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class ConsumerPartitionPausedEvent extends KafkaEvent {
@@ -36,7 +36,7 @@ public class ConsumerPartitionPausedEvent extends KafkaEvent {
 	 * @param source the container instance that generated the event.
 	 * @param container the container or the parent container if the container is a child.
 	 * @param partition the partition.
-	 * @since 2.7.0
+	 * @since 2.7
 	 */
 	public ConsumerPartitionPausedEvent(Object source, Object container, TopicPartition partition) {
 		super(source, container);

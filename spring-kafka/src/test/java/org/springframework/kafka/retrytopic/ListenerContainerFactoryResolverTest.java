@@ -33,7 +33,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 class ListenerContainerFactoryResolverTest {

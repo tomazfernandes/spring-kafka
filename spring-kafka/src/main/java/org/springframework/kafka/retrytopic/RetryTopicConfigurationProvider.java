@@ -41,7 +41,7 @@ import org.springframework.kafka.annotation.RetryableTopic;
  * annotated method is looked up.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  * @see RetryTopicConfigurer
  * @see RetryableTopic
  * @see org.springframework.kafka.annotation.DltHandler

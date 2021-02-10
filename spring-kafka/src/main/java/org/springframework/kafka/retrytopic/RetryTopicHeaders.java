@@ -23,7 +23,7 @@ import java.time.format.DateTimeFormatter;
  * Contains the headers that will be used in the forwarded messages.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public abstract class RetryTopicHeaders {

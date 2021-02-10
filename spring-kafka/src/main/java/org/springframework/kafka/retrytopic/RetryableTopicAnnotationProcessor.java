@@ -50,7 +50,7 @@ import org.springframework.util.StringUtils;
  * returning an {@link RetryTopicConfiguration}.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class RetryableTopicAnnotationProcessor {
@@ -82,7 +82,7 @@ public class RetryableTopicAnnotationProcessor {
 				.retryOn(Arrays.asList(annotation.include()))
 				.notRetryOn(Arrays.asList(annotation.exclude()))
 				.traversingCauses(annotation.traversingCauses())
-				.useSameTopicForFixedDelays(annotation.fixedDelayTopicStrategy())
+				.useSingleTopicForFixedDelays(annotation.fixedDelayTopicStrategy())
 				.dltProcessingFailureStrategy(annotation.dltProcessingFailureStrategy())
 				.create(getKafkaTemplate(annotation.kafkaTemplate(), topics));
 	}

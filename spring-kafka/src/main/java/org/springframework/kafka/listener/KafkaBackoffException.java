@@ -24,7 +24,7 @@ import org.springframework.kafka.KafkaException;
  * Exception thrown when the consumer should not yet consume the message due to backOff.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 public class KafkaBackoffException extends KafkaException {
 	private static final long serialVersionUID = 1L;

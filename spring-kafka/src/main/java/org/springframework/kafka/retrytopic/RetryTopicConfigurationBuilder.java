@@ -40,7 +40,7 @@ import org.springframework.util.Assert;
  * Builder class to create {@link RetryTopicConfiguration} instances.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class RetryTopicConfigurationBuilder {
@@ -174,12 +174,12 @@ public class RetryTopicConfigurationBuilder {
 		return this;
 	}
 
-	public RetryTopicConfigurationBuilder useSameTopicForFixedDelays() {
+	public RetryTopicConfigurationBuilder useSingleTopicForFixedDelays() {
 		this.fixedDelayTopicStrategy = RetryTopicConfiguration.FixedDelayTopicStrategy.SINGLE_TOPIC;
 		return this;
 	}
 
-	RetryTopicConfigurationBuilder useSameTopicForFixedDelays(RetryTopicConfiguration.FixedDelayTopicStrategy useSameTopicForFixedDelays) {
+	RetryTopicConfigurationBuilder useSingleTopicForFixedDelays(RetryTopicConfiguration.FixedDelayTopicStrategy useSameTopicForFixedDelays) {
 		this.fixedDelayTopicStrategy = useSameTopicForFixedDelays;
 		return this;
 	}

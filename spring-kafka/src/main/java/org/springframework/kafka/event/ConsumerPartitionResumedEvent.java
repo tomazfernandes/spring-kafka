@@ -22,7 +22,7 @@ import org.apache.kafka.common.TopicPartition;
  * An event published when a consumer partition is resumed.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class ConsumerPartitionResumedEvent extends KafkaEvent {
@@ -36,7 +36,7 @@ public class ConsumerPartitionResumedEvent extends KafkaEvent {
 	 * @param source the container instance that generated the event.
 	 * @param container the container or the parent container if the container is a child.
 	 * @param partition the partition.
-	 * @since 2.7.0
+	 * @since 2.7
 	 */
 	public ConsumerPartitionResumedEvent(Object source, Object container,
 										TopicPartition partition) {

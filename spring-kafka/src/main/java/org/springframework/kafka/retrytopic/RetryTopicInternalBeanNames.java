@@ -24,7 +24,7 @@ package org.springframework.kafka.retrytopic;
  * of the default one.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public abstract class RetryTopicInternalBeanNames {
@@ -38,6 +38,6 @@ public abstract class RetryTopicInternalBeanNames {
 	static final String DESTINATION_TOPIC_CONTAINER_NAME = "internalDestinationTopicContainer";
 	static final String DEFAULT_LISTENER_FACTORY_BEAN_NAME = "retryTopicListenerContainerFactory";
 	static final String INTERNAL_BACKOFF_CLOCK_NAME = "internalBackoffClock";
-	static final String DEFAULT_KAFKA_TEMPLATE_BEAN_NAME = "defaultRetryKafkaTemplate";
+	static final String DEFAULT_KAFKA_TEMPLATE_BEAN_NAME = "retryTopicDefaultKafkaTemplate";
 
 }

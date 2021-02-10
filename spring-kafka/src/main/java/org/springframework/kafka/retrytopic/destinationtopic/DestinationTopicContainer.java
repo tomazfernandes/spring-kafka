@@ -38,7 +38,7 @@ import org.springframework.kafka.retrytopic.RetryTopicHeaders;
  * Implements the {@link DestinationTopicResolver} interface.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class DestinationTopicContainer implements DestinationTopicResolver, ApplicationListener<ContextRefreshedEvent> {

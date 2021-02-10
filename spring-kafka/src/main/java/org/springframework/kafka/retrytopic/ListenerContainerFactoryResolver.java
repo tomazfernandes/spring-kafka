@@ -34,7 +34,7 @@ import org.springframework.util.StringUtils;
  * {@link RetryTopicConfiguration}.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  * @see ListenerContainerFactoryConfigurer
  *

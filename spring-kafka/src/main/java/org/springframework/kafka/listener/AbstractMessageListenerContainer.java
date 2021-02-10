@@ -18,10 +18,11 @@ package org.springframework.kafka.listener;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -58,6 +59,7 @@ import org.springframework.util.StringUtils;
  * @author Gary Russell
  * @author Marius Bogoevici
  * @author Artem Bilan
+ * @author Tomaz Fernandes
  */
 public abstract class AbstractMessageListenerContainer<K, V>
 		implements GenericMessageListenerContainer<K, V>, BeanNameAware, ApplicationEventPublisherAware,
@@ -106,7 +108,7 @@ public abstract class AbstractMessageListenerContainer<K, V>
 
 	private ApplicationContext applicationContext;
 
-	private final Map<TopicPartition, Boolean> pausedPartitions;
+	private final Set<TopicPartition> pausedPartitions;
 
 	/**
 	 * Construct an instance with the provided factory and properties.
@@ -149,7 +151,7 @@ public abstract class AbstractMessageListenerContainer<K, V>
 			this.containerProperties.setConsumerRebalanceListener(createSimpleLoggingConsumerRebalanceListener());
 		}
 
-		this.pausedPartitions = new HashMap<>();
+		this.pausedPartitions = new HashSet<>();
 	}
 
 	@Override
@@ -239,23 +241,23 @@ public abstract class AbstractMessageListenerContainer<K, V>
 	}
 
 	@Override
-	public boolean isPartitionPaused(TopicPartition topicPartition) {
+	public boolean isPartitionPauseRequested(TopicPartition topicPartition) {
 		synchronized (this.pausedPartitions) {
-			return this.pausedPartitions.computeIfAbsent(topicPartition, thisTopicPartition -> false);
+			return this.pausedPartitions.contains(topicPartition);
 		}
 	}
 
 	@Override
 	public void pausePartition(TopicPartition topicPartition) {
 		synchronized (this.pausedPartitions) {
-			this.pausedPartitions.put(topicPartition, true);
+			this.pausedPartitions.add(topicPartition);
 		}
 	}
 
 	@Override
 	public void resumePartition(TopicPartition topicPartition) {
 		synchronized (this.pausedPartitions) {
-			this.pausedPartitions.put(topicPartition, false);
+			this.pausedPartitions.remove(topicPartition);
 		}
 	}
 

@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  * providing callback interfaces to be called upon the context properties.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public interface DestinationTopicProcessor {

@@ -37,7 +37,7 @@ import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicCon
  * be used instead.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class RetryTopicBootstrapper {

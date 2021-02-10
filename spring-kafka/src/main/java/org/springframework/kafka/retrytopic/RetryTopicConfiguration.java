@@ -28,7 +28,7 @@ import org.springframework.kafka.support.AllowDenyCollectionManager;
  * Should be created via the {@link RetryTopicConfigurationBuilder}.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class RetryTopicConfiguration {

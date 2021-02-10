@@ -55,7 +55,7 @@ import org.springframework.kafka.support.Suffixer;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 class RetryTopicConfigurerTest {

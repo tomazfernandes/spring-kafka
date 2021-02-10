@@ -51,7 +51,7 @@ import org.springframework.util.concurrent.ListenableFuture;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings({"unchecked", "rawtypes"})

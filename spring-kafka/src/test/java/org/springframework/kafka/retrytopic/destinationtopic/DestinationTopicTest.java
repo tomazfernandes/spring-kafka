@@ -30,7 +30,7 @@ import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 public class DestinationTopicTest {
 

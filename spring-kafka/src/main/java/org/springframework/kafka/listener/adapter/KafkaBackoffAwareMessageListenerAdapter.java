@@ -41,7 +41,7 @@ import org.springframework.kafka.support.Acknowledgment;
  *
  * @author Tomaz Fernandes
  *
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class KafkaBackoffAwareMessageListenerAdapter<K, V> extends AbstractDelegatingMessageListenerAdapter<AcknowledgingConsumerAwareMessageListener<K, V>> implements AcknowledgingConsumerAwareMessageListener<K, V> {

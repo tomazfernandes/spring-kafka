@@ -33,6 +33,7 @@ import org.springframework.lang.Nullable;
  * @author Stephane Nicoll
  * @author Gary Russell
  * @author Vladimir Tsanev
+ * @author Tomaz Fernandes
  */
 public interface MessageListenerContainer extends SmartLifecycle {
 
@@ -104,29 +105,29 @@ public interface MessageListenerContainer extends SmartLifecycle {
 	 * Pause this partition before the next poll(). This is a thread-safe operation, the
 	 * actual pause is processed by the consumer thread.
 	 * @param topicPartition the topicPartition to pause.
-	 * @since 2.7.0
+	 * @since 2.7
 	 */
 	default void pausePartition(TopicPartition topicPartition) {
 		throw new UnsupportedOperationException("This container doesn't support pausing a partition");
 	}
 
 	/**
-	 * Resume this partition before the next poll(). This is a thread-safe operation, the
+	 * Resume this partition, if paused, after the next poll(). This is a thread-safe operation, the
 	 * actual pause is processed by the consumer thread.
 	 * @param topicPartition the topicPartition to resume.
-	 * @since 2.7.0
+	 * @since 2.7
 	 */
 	default void resumePartition(TopicPartition topicPartition) {
 		throw new UnsupportedOperationException("This container doesn't support resuming a partition");
 	}
 
 	/**
-	 * Whether or not this topic Partition pause has been requested.
+	 * Whether or not this topic's partition pause has been requested.
 	 * @param topicPartition the topic partition to check
-	 * @return true if pause has been requested
-	 * @since 2.7.0
+	 * @return true if pause for this TopicPartition has been requested
+	 * @since 2.7
 	 */
-	default boolean isPartitionPaused(TopicPartition topicPartition) {
+	default boolean isPartitionPauseRequested(TopicPartition topicPartition) {
 		throw new UnsupportedOperationException("This container doesn't support pausing a partition");
 	}
 

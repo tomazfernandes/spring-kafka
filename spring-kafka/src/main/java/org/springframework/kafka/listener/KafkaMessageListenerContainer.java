@@ -1255,7 +1255,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 						&& now > lastAlertAt + this.containerProperties.getIdlePartitionEventInterval()) {
 					this.wasIdlePartition.put(topicPartition, true);
 					publishIdlePartitionEvent(now - lastReceive, topicPartition, this.consumer,
-							isPartitionPaused(topicPartition));
+							isPartitionPauseRequested(topicPartition));
 					this.lastAlertPartition.put(topicPartition, now);
 					if (this.consumerSeekAwareListener != null) {
 						seekPartitions(Collections.singletonList(topicPartition), true);
@@ -1438,7 +1438,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			List<TopicPartition> partitionsToPause = this
 					.assignedPartitions
 					.stream()
-					.filter(tp -> isPartitionPaused(tp) && !pausedPartitions.contains(tp))
+					.filter(tp -> isPartitionPauseRequested(tp) && !pausedPartitions.contains(tp))
 					.collect(Collectors.toList());
 			if (partitionsToPause.size() > 0) {
 				this.consumer.pause(partitionsToPause);
@@ -1452,7 +1452,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			List<TopicPartition> partitionsToResume = this
 					.assignedPartitions
 					.stream()
-					.filter(tp -> !isPartitionPaused(tp) && pausedPartitions.contains(tp))
+					.filter(tp -> !isPartitionPauseRequested(tp) && pausedPartitions.contains(tp))
 					.collect(Collectors.toList());
 			if (partitionsToResume.size() > 0) {
 				this.consumer.resume(partitionsToResume);

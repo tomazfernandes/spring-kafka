@@ -35,7 +35,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 class RetryTopicConfigurationBuilderTest {

@@ -288,6 +288,7 @@ public class ConcurrentMessageListenerContainer<K, V> extends AbstractMessageLis
 		}
 	}
 
+	@Override
 	public void pausePartition(TopicPartition topicPartition) {
 		synchronized (this.lifecycleMonitor) {
 			super.pausePartition(topicPartition);
@@ -298,6 +299,7 @@ public class ConcurrentMessageListenerContainer<K, V> extends AbstractMessageLis
 		}
 	}
 
+	@Override
 	public void resumePartition(TopicPartition topicPartition) {
 		synchronized (this.lifecycleMonitor) {
 			super.resumePartition(topicPartition);

@@ -34,7 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 class DefaultDestinationTopicProcessorTest extends DestinationTopicTest {

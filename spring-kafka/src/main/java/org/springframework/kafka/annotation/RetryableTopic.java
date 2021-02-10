@@ -34,7 +34,7 @@ import org.springframework.retry.policy.MaxAttemptsRetryPolicy;
  * See {@link RetryTopicConfigurer for usage examples.}
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  * @see RetryTopicConfigurer
  */
@@ -60,9 +60,9 @@ public @interface RetryableTopic {
 
 	/**
 	 *
-	 * The bean name of the {@link org.springframework.kafka.core.KafkaTemplate} instance that will be used to forward
-	 * the message to the retry and DLT topics. If not specified,
-	 * the default instance will be used, if any.
+	 * The bean name of the {@link org.springframework.kafka.core.KafkaTemplate} bean
+	 * that will be used to forward the message to the retry and Dlt topics. If not specified,
+	 * a bean with name retryTopicDefaultKafkaTemplate will be looked up.
 	 *
 	 * @return the kafkaTemplate bean name.
 	 */

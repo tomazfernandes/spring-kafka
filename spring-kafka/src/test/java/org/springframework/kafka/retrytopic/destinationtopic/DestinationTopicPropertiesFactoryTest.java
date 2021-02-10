@@ -40,7 +40,7 @@ import org.springframework.retry.backoff.FixedBackOffPolicy;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 class DestinationTopicPropertiesFactoryTest {

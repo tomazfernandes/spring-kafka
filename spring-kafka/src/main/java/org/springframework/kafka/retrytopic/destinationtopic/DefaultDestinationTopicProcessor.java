@@ -29,7 +29,7 @@ import java.util.stream.IntStream;
  * Default implementation of the {@link DestinationTopicProcessor} interface.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class DefaultDestinationTopicProcessor implements DestinationTopicProcessor {

@@ -35,7 +35,7 @@ import org.springframework.util.StringUtils;
  * provided configurations.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class DestinationTopicPropertiesFactory {

@@ -40,7 +40,7 @@ import org.springframework.kafka.retrytopic.RetryTopicHeaders;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 class KafkaConsumerBackoffManagerTest {

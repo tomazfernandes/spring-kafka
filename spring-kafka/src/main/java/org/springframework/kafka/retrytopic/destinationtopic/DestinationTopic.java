@@ -27,7 +27,7 @@ import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
  * Representation a Destination Topic to which messages can be forwarded, such as retry topics and dlt.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public class DestinationTopic {

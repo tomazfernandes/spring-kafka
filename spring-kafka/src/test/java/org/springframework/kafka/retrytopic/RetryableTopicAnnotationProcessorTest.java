@@ -44,7 +44,7 @@ import org.springframework.util.ReflectionUtils;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
 class RetryableTopicAnnotationProcessorTest {

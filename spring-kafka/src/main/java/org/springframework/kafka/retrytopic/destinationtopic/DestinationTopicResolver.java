@@ -27,7 +27,7 @@ import org.springframework.kafka.core.KafkaOperations;
  * and the thrown exception.
  *
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  *
  */
 public interface DestinationTopicResolver {

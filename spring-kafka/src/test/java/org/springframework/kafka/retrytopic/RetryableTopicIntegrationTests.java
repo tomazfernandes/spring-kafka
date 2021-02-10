@@ -62,7 +62,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.7.0
+ * @since 2.7
  */
 @SpringJUnitConfig
 @DirtiesContext
@@ -257,7 +257,7 @@ public class RetryableTopicIntegrationTests {
 					.builder()
 					.fixedBackOff(3000)
 					.maxAttempts(5)
-					.useSameTopicForFixedDelays()
+					.useSingleTopicForFixedDelays()
 					.includeTopic(FIRST_TOPIC)
 					.abortOnDltFailure()
 					.dltHandlerMethod(MyCustomDltProcessor.class, "processDltMessage")
