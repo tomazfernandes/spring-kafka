@@ -136,7 +136,6 @@ class ListenerContainerFactoryConfigurerTest {
 		given(containerProperties.getAckMode()).willReturn(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
 		given(containerProperties.getCommitCallback()).willReturn(offsetCommitCallback);
 
-
 		// given
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory);

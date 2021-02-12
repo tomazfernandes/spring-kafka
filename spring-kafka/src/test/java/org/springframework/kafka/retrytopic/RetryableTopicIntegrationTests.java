@@ -43,7 +43,6 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -51,7 +50,6 @@ import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.retry.annotation.Backoff;
@@ -167,7 +165,7 @@ public class RetryableTopicIntegrationTests {
 		CountDownLatchContainer container;
 
 		@RetryableTopic(attempts = 4,
-				backoff = @Backoff(delay = 1200, maxDelay = 9000, multiplier = 1.5),
+				backoff = @Backoff(delay = 50, maxDelay = 120, multiplier = 1.5),
 				numPartitions = 3,
 				traversingCauses = true,
 				include = MyRetryException.class, kafkaTemplate = "kafkaTemplate")
@@ -192,7 +190,7 @@ public class RetryableTopicIntegrationTests {
 		CountDownLatchContainer container;
 
 		@RetryableTopic(attempts = 3, numPartitions = 3, exclude = MyDontRetryException.class,
-				backoff = @Backoff(delay = 700, maxDelay = 12000, multiplier = 3),
+				backoff = @Backoff(delay = 50, maxDelay = 100, multiplier = 3),
 				traversingCauses = true, kafkaTemplate = "kafkaTemplate")
 		@KafkaListener(topics = NOT_RETRYABLE_EXCEPTION_TOPIC, containerFactory = MAIN_TOPIC_CONTAINER_FACTORY)
 		public void listenWithAnnotation2(String message) {
@@ -259,11 +257,11 @@ public class RetryableTopicIntegrationTests {
 		public RetryTopicConfiguration firstRetryTopic(KafkaTemplate<String, String> template) {
 			return RetryTopicConfigurer
 					.builder()
-					.fixedBackOff(3000)
+					.fixedBackOff(50)
 					.maxAttempts(5)
 					.useSingleTopicForFixedDelays()
 					.includeTopic(FIRST_TOPIC)
-					.abortOnDltFailure()
+					.doNotRetryOnDltFailure()
 					.dltHandlerMethod(MyCustomDltProcessor.class, "processDltMessage")
 					.create(template);
 		}
@@ -272,11 +270,11 @@ public class RetryableTopicIntegrationTests {
 		public RetryTopicConfiguration secondRetryTopic(KafkaTemplate<String, String> template) {
 			return RetryTopicConfigurer
 					.builder()
-					.exponentialBackoff(1000, 2, 10000)
+					.exponentialBackoff(50, 2, 10000)
 					.retryOn(Arrays.asList(IllegalStateException.class, IllegalAccessException.class))
 					.traversingCauses()
 					.includeTopic(SECOND_TOPIC)
-					.abortOnDltFailure()
+					.doNotRetryOnDltFailure()
 					.dltHandlerMethod(MyCustomDltProcessor.class, "processDltMessage")
 					.create(template);
 		}
@@ -321,22 +319,6 @@ public class RetryableTopicIntegrationTests {
 			return Clock.systemUTC();
 		}
 
-		@Bean(name = RetryTopicInternalBeanNames.KAFKA_CONSUMER_BACKOFF_MANAGER)
-		public NoBackOffConsumerManager backoffManager(KafkaListenerEndpointRegistry registry, Clock clock) {
-			return new NoBackOffConsumerManager(registry, clock);
-		}
-	}
-
-	static class NoBackOffConsumerManager extends KafkaConsumerBackoffManager {
-
-		NoBackOffConsumerManager(KafkaListenerEndpointRegistry registry, Clock clock) {
-			super(registry, clock);
-		}
-
-		@Override
-		public void maybeBackoff(Context context) {
-			return;
-		}
 	}
 
 	@Configuration

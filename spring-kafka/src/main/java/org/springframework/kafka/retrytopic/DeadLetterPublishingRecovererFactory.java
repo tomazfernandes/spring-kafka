@@ -62,7 +62,7 @@ public class DeadLetterPublishingRecovererFactory {
 			@Override
 			protected void publish(ProducerRecord<Object, Object> outRecord, KafkaOperations<Object, Object> kafkaTemplate) {
 				if (NO_OPS_RETRY_TOPIC.equals(outRecord.topic())) {
-					this.logger.warn(() -> "Processing failed for dlt topic, aborting.");
+					this.logger.warn(() -> "Processing failed for dlt topic, giving up.");
 					return;
 				}
 

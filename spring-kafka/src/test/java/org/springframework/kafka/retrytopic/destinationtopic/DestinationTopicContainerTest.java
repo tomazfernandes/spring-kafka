@@ -104,7 +104,7 @@ class DestinationTopicContainerTest extends DestinationTopicTest {
 	}
 
 	@Test
-	void shouldResolveNoOpsDestinationForAbortRetryDltPolicy() {
+	void shouldResolveNoOpsDestinationForDoNotRetryDltPolicy() {
 		assertEquals(noOpsDestinationTopic, destinationTopicContainer
 				.resolveNextDestination(dltDestinationTopic.getDestinationName(), 1, new IllegalArgumentException()));
 	}

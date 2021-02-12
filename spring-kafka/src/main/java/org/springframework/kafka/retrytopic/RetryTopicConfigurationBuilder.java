@@ -260,7 +260,7 @@ public class RetryTopicConfigurationBuilder {
 	}
 
 	/* ---------------- DLT Processing Failure Behavior -------------- */
-	public RetryTopicConfigurationBuilder abortOnDltFailure() {
+	public RetryTopicConfigurationBuilder doNotRetryOnDltFailure() {
 		this.dltProcessingFailureStrategy =
 				RetryTopicConfiguration.DltProcessingFailureStrategy.FAIL;
 		return this;

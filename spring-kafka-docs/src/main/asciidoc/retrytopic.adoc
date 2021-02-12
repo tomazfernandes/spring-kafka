@@ -322,7 +322,7 @@ In the latter the consumer ends the execution without forwarding the message.
 ----
 
 @RetryableTopic(dltProcessingFailureStrategy =
-			RetryTopicConfiguration.DltProcessingFailureStrategy.ABORT)
+			RetryTopicConfiguration.DltProcessingFailureStrategy.FAIL)
 @KafkaListener(topics = "my-annotated-topic")
 public void processMessage(MyPojo message) {
         // ... message processing
@@ -336,7 +336,7 @@ public RetryTopicConfigurer myRetryTopic(KafkaTemplate<Integer, MyPojo> template
 return RetryTopicConfigurer
     .builder()
     .dltProcessor(MyCustomDltProcessor.class, "processDltMessage")
-    .abortOnDltFailure()
+    .doNotRetryOnDltFailure()
     .create(template);
 }
 ----
