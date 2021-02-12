@@ -46,7 +46,9 @@ import org.springframework.util.Assert;
 public class DeadLetterPublishingRecovererFactory {
 
 	private static final CharSequence KAFKA_DLT_HEADERS_PREFIX = "kafka_dlt";
+
 	private static final String NO_OPS_RETRY_TOPIC = "internal-kafka-noOpsRetry";
+
 	private final DestinationTopicResolver destinationTopicResolver;
 
 	public DeadLetterPublishingRecovererFactory(DestinationTopicResolver destinationTopicResolver) {

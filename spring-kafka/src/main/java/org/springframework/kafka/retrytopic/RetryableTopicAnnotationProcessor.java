@@ -56,9 +56,13 @@ import org.springframework.util.StringUtils;
 public class RetryableTopicAnnotationProcessor {
 
 	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(RetryableTopicAnnotationProcessor.class));
+
 	private static final SpelExpressionParser PARSER;
+
 	private static final RetryTopicConfiguration NO_CONFIGURATION = null;
+
 	private static final BeanFactory NO_SUITABLE_FACTORY_INSTANCE = null;
+
 	private final BeanFactory beanFactory;
 
 	static {

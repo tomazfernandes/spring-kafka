@@ -62,24 +62,27 @@ class DeadLetterPublishingRecovererFactoryTest {
 	@Mock
 	DestinationTopicResolver destinationTopicResolver;
 
-	String testTopic = "test-topic";
-	String testRetryTopic = "test-topic-retry-0";
+	private String testTopic = "test-topic";
+
+	private String testRetryTopic = "test-topic-retry-0";
 
 	private final Object key = new Object();
+
 	private final Object value = new Object();
-	ConsumerRecord<?, ?> consumerRecord = new ConsumerRecord<>(testTopic, 2, 0, key, value);
+
+	private ConsumerRecord<?, ?> consumerRecord = new ConsumerRecord<>(testTopic, 2, 0, key, value);
 
 	@Mock
-	DestinationTopic destinationTopic;
+	private DestinationTopic destinationTopic;
 
 	@Mock
-	KafkaOperations<?, ?> kafkaOperations;
+	private KafkaOperations<?, ?> kafkaOperations;
 
 	@Mock
-	KafkaOperations<?, ?> kafkaOperations2;
+	private KafkaOperations<?, ?> kafkaOperations2;
 
 	@Mock
-	ListenableFuture<?> listenableFuture;
+	private ListenableFuture<?> listenableFuture;
 
 	@Captor
 	private ArgumentCaptor<ProducerRecord> producerRecordCaptor;

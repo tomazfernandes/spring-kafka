@@ -31,8 +31,11 @@ import org.springframework.util.Assert;
  * @since 28/12/20
  */
 final public class AllowDenyCollectionManager<T>  {
+
 	private final Collection<T> allowList;
+
 	private final Collection<T> denyList;
+
 	private final Collection<Predicate<T>> predicates;
 
 	public AllowDenyCollectionManager(Collection<T> allowList, Collection<T> denyList) {

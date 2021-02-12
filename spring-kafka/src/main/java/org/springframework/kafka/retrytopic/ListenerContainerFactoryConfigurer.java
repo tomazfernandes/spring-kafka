@@ -50,6 +50,7 @@ import org.springframework.util.backoff.FixedBackOff;
 public class ListenerContainerFactoryConfigurer {
 
 	private static Set<ConcurrentKafkaListenerContainerFactory<?, ?>> configuredFactoriesCache;
+
 	private final KafkaConsumerBackoffManager kafkaConsumerBackoffManager;
 
 	static {

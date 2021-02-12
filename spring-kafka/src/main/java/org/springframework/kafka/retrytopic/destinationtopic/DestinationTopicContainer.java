@@ -44,7 +44,9 @@ import org.springframework.kafka.retrytopic.RetryTopicHeaders;
 public class DestinationTopicContainer implements DestinationTopicResolver, ApplicationListener<ContextRefreshedEvent> {
 
 	private final Map<String, DestinationsHolder> destinationsHolderMap;
+
 	private boolean containerClosed;
+
 	private final Clock clock;
 
 	public DestinationTopicContainer(Clock clock) {

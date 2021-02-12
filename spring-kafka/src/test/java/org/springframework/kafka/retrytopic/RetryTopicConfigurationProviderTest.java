@@ -26,7 +26,6 @@ import static org.mockito.Mockito.times;
 import java.lang.reflect.Method;
 import java.util.Collections;
 
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -44,15 +43,14 @@ import org.springframework.kafka.core.KafkaOperations;
 class RetryTopicConfigurationProviderTest {
 
 	@Mock
-	ListableBeanFactory beanFactory;
+	private ListableBeanFactory beanFactory;
 
-	String[] topics = {"topic1", "topic2"};
+	private String[] topics = {"topic1", "topic2"};
 
-	Method annotatedMethod = getAnnotatedMethod("annotatedMethod");
+	private Method annotatedMethod = getAnnotatedMethod("annotatedMethod");
 
-	Method nonAnnotatedMethod = getAnnotatedMethod("nonAnnotatedMethod");
+	private Method nonAnnotatedMethod = getAnnotatedMethod("nonAnnotatedMethod");
 
-	@NotNull
 	private Method getAnnotatedMethod(String methodName) {
 		try {
 			return  this.getClass().getDeclaredMethod(methodName);

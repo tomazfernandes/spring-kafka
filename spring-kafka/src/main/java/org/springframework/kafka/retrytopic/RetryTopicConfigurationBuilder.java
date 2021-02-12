@@ -44,19 +44,32 @@ import org.springframework.util.Assert;
  *
  */
 public class RetryTopicConfigurationBuilder {
+
 	private int maxAttempts = BackOffValuesGenerator.NOT_SET;
+
 	private BackOffPolicy backOffPolicy;
+
 	private RetryTopicConfigurer.EndpointHandlerMethod dltHandlerMethod;
+
 	private List<String> includeTopicNames = new ArrayList<>();
+
 	private List<String> excludeTopicNames = new ArrayList<>();
+
 	private String retryTopicSuffix;
+
 	private String dltSuffix;
+
 	private RetryTopicConfiguration.TopicCreation topicCreationConfiguration = new RetryTopicConfiguration.TopicCreation();
+
 	private ConcurrentKafkaListenerContainerFactory<?, ?> listenerContainerFactory;
+
 	private String listenerContainerFactoryName;
+
 	private BinaryExceptionClassifierBuilder classifierBuilder;
+
 	private RetryTopicConfiguration.FixedDelayTopicStrategy fixedDelayTopicStrategy =
 			RetryTopicConfiguration.FixedDelayTopicStrategy.MULTIPLE_TOPICS;
+
 	private RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy =
 			RetryTopicConfiguration.DltProcessingFailureStrategy.ALWAYS_RETRY;
 
@@ -249,7 +262,7 @@ public class RetryTopicConfigurationBuilder {
 	/* ---------------- DLT Processing Failure Behavior -------------- */
 	public RetryTopicConfigurationBuilder abortOnDltFailure() {
 		this.dltProcessingFailureStrategy =
-				RetryTopicConfiguration.DltProcessingFailureStrategy.ABORT;
+				RetryTopicConfiguration.DltProcessingFailureStrategy.FAIL;
 		return this;
 	}
 

@@ -46,7 +46,9 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(KafkaConsumerBackoffManager.class));
 
 	private final KafkaListenerEndpointRegistry registry;
+
 	private final Map<TopicPartition, Context> backOffTimes;
+
 	private final Clock clock;
 
 	public KafkaConsumerBackoffManager(KafkaListenerEndpointRegistry registry,

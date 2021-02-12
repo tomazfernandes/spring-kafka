@@ -221,8 +221,11 @@ public class RetryTopicConfigurer {
 			LoggingDltListenerHandlerMethod.DEFAULT_DLT_METHOD_NAME);
 
 	private final DestinationTopicProcessor destinationTopicProcessor;
+
 	private final ListenerContainerFactoryResolver containerFactoryResolver;
+
 	private final ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer;
+
 	private final BeanFactory beanFactory;
 
 	RetryTopicConfigurer(DestinationTopicProcessor destinationTopicProcessor,

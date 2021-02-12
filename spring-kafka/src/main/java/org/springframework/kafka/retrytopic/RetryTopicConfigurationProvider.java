@@ -50,6 +50,7 @@ import org.springframework.kafka.annotation.RetryableTopic;
 public class RetryTopicConfigurationProvider {
 
 	private final BeanFactory beanFactory;
+
 	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(RetryTopicConfigurationProvider.class));
 
 	public RetryTopicConfigurationProvider(BeanFactory beanFactory) {

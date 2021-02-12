@@ -40,7 +40,9 @@ import org.springframework.kafka.retrytopic.RetryTopicHeaders;
 class DestinationTopicContainerTest extends DestinationTopicTest {
 
 	private Map<String, DestinationTopicResolver.DestinationsHolder> destinationTopicMap;
+
 	private final Clock clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault());
+
 	private DestinationTopicContainer destinationTopicContainer = new DestinationTopicContainer(clock);
 
 	@BeforeEach

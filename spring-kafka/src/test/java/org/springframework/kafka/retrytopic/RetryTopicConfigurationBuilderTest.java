@@ -41,10 +41,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 class RetryTopicConfigurationBuilderTest {
 
 	@Mock
-	KafkaOperations<?, ?> kafkaOperations;
+	private KafkaOperations<?, ?> kafkaOperations;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
 
 	@Test
 	void shouldExcludeTopics() {

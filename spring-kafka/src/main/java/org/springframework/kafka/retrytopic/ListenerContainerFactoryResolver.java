@@ -42,10 +42,15 @@ import org.springframework.util.StringUtils;
 public class ListenerContainerFactoryResolver {
 
 	private final static ConcurrentKafkaListenerContainerFactory<?, ?> NO_CANDIDATE = null;
+
 	private final BeanFactory beanFactory;
+
 	private final List<FactoryResolver> mainEndpointResolvers;
+
 	private final List<FactoryResolver> retryEndpointResolvers;
+
 	private final Cache mainEndpointCache;
+
 	private final Cache retryEndpointCache;
 
 

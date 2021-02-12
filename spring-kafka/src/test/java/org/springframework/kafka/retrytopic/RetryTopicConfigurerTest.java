@@ -61,93 +61,98 @@ import org.springframework.kafka.support.Suffixer;
 class RetryTopicConfigurerTest {
 
 	@Mock
-	DestinationTopicProcessor destinationTopicProcessor;
+	private DestinationTopicProcessor destinationTopicProcessor;
 
 	@Mock
-	ListenerContainerFactoryResolver containerFactoryResolver;
+	private ListenerContainerFactoryResolver containerFactoryResolver;
 
 	@Mock
-	ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer;
+	private ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer;
 
 	@Mock
-	BeanFactory beanFactory;
+	private BeanFactory beanFactory;
 
 	@Mock
-	DefaultListableBeanFactory defaultListableBeanFactory;
+	private DefaultListableBeanFactory defaultListableBeanFactory;
 
 	@Mock
-	RetryTopicConfigurer.EndpointProcessor endpointProcessor;
+	private RetryTopicConfigurer.EndpointProcessor endpointProcessor;
 
 	@Mock
-	MethodKafkaListenerEndpoint<?, ?> mainEndpoint;
+	private MethodKafkaListenerEndpoint<?, ?> mainEndpoint;
 
 	@Mock
-	MultiMethodKafkaListenerEndpoint<?, ?> multiMethodEndpoint;
+	private MultiMethodKafkaListenerEndpoint<?, ?> multiMethodEndpoint;
 
 	@Mock
-	RetryTopicConfiguration configuration;
+	private RetryTopicConfiguration configuration;
 
 	@Mock
-	DestinationTopic.Properties mainDestinationProperties;
+	private DestinationTopic.Properties mainDestinationProperties;
 
 	@Mock
-	DestinationTopic.Properties firstRetryDestinationProperties;
+	private DestinationTopic.Properties firstRetryDestinationProperties;
 
 	@Mock
-	DestinationTopic.Properties secondRetryDestinationProperties;
+	private DestinationTopic.Properties secondRetryDestinationProperties;
 
 	@Mock
-	DestinationTopic.Properties dltDestinationProperties;
+	private DestinationTopic.Properties dltDestinationProperties;
 
 	@Mock
-	DeadLetterPublishingRecovererFactory.Configuration deadLetterConfiguration;
+	private DeadLetterPublishingRecovererFactory.Configuration deadLetterConfiguration;
 
 	@Mock
-	ListenerContainerFactoryResolver.Configuration factoryResolverConfig;
+	private ListenerContainerFactoryResolver.Configuration factoryResolverConfig;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
 
 	@Captor
-	ArgumentCaptor<RetryTopicConfigurer.EndpointProcessingCustomizerHolder> mainCustomizerHolderCaptor;
+	private ArgumentCaptor<RetryTopicConfigurer.EndpointProcessingCustomizerHolder> mainCustomizerHolderCaptor;
 
 	@Captor
-	ArgumentCaptor<RetryTopicConfigurer.EndpointProcessingCustomizerHolder> retryCustomizerHolderCaptor;
+	private ArgumentCaptor<RetryTopicConfigurer.EndpointProcessingCustomizerHolder> retryCustomizerHolderCaptor;
 
 	@Captor
-	ArgumentCaptor<Consumer<DestinationTopic.Properties>> destinationPropertiesProcessorCaptor;
+	private ArgumentCaptor<Consumer<DestinationTopic.Properties>> destinationPropertiesProcessorCaptor;
 
 	@Captor
-	ArgumentCaptor<DestinationTopicProcessor.Context> contextCaptor;
+	private ArgumentCaptor<DestinationTopicProcessor.Context> contextCaptor;
 
 	@Mock
-	RetryTopicConfigurer.EndpointHandlerMethod endpointHandlerMethod;
+	private RetryTopicConfigurer.EndpointHandlerMethod endpointHandlerMethod;
 
 	@Mock
-	Consumer<DestinationTopic.Properties> destinationPropertiesConsumer;
+	private Consumer<DestinationTopic.Properties> destinationPropertiesConsumer;
 
 	@Mock
-	MethodKafkaListenerEndpoint<?, ?> retryEndpoint1;
+	private MethodKafkaListenerEndpoint<?, ?> retryEndpoint1;
 
 	@Mock
-	MethodKafkaListenerEndpoint<?, ?> retryEndpoint2;
+	private MethodKafkaListenerEndpoint<?, ?> retryEndpoint2;
 
 	@Mock
-	MethodKafkaListenerEndpoint<?, ?> dltEndpoint;
+	private MethodKafkaListenerEndpoint<?, ?> dltEndpoint;
 
-	List<String> topics = Arrays.asList("topic1", "topic2");
-
-	private final String noOpsMethodName = "noOpsMethod";
-	private final String noOpsDltMethodName = "noOpsDltMethod";
-	Method endpointMethod = getMethod(noOpsMethodName);
-	Method noOpsDltMethod = getMethod(noOpsDltMethodName);
-
-	private Object bean = new Object();
+	private List<String> topics = Arrays.asList("topic1", "topic2");
 
 	@Mock
 	private ConsumerRecord<?, ?> consumerRecordMessage;
 
 	private Object objectMessage = new Object();
+
+	// Methods
+
+	private final String noOpsMethodName = "noOpsMethod";
+
+	private final String noOpsDltMethodName = "noOpsDltMethod";
+
+	private Method endpointMethod = getMethod(noOpsMethodName);
+
+	private Method noOpsDltMethod = getMethod(noOpsDltMethodName);
+
+	private Object bean = new Object();
 
 	private Method getMethod(String methodName)  {
 		try {

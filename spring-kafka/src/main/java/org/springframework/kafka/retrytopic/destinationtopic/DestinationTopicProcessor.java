@@ -44,7 +44,9 @@ public interface DestinationTopicProcessor {
 		protected final List<DestinationTopic.Properties> properties;
 
 		public Context(List<DestinationTopic.Properties> properties) {
+
 			this.destinationsByTopicMap = new HashMap<>();
+
 			this.properties = properties;
 		}
 	}

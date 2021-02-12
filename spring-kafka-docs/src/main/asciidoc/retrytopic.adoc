@@ -1,8 +1,11 @@
 [[retry-topic]]
 == Non-Blocking Retries
 
+IMPORTANT: This is an experimental feature and the usual rule of no breaking API changes does not apply to this feature until the experimental designation is removed.
+Users are encouraged to try out the feature and provide feedback via GitHub Issues or GitHub discussions.
+
 Achieving non-blocking retry / DLT functionality with Kafka usually requires setting up extra topics and creating and configuring the corresponding listeners.
-Since 2.7 Spring Kafka offers the `@RetryableTopic` annotation and `RetryTopicConfiguration` class to simplify that bootstraping.
+Since 2.7 Spring for Apache Kafka offers the `@RetryableTopic` annotation and `RetryTopicConfiguration` class to simplify that bootstraping.
 
 === How The Pattern Works
 
@@ -21,7 +24,7 @@ IMPORTANT: At this time this functionality only supports ConcurrentKafkaListener
 
 === Configuration
 
-==== Using the `@RetriableTopic` annotation
+==== Using the `@RetryableTopic` annotation
 
 To configure the retry and dlt topics for a `@KafkaListener` annotated method, you just have to add the `@RetryableTopic` annotation to it and Spring Kafka will bootstrap all the necessary topics and consumers with the default configurations.
 
@@ -29,7 +32,7 @@ To configure the retry and dlt topics for a `@KafkaListener` annotated method, y
 [source, java]
 ----
 @RetryableTopic(kafkaTemplate = "myRetryableTopicKafkaTemplate")
-@KafkaListener(topics = "my-annotated-topic")
+@KafkaListener(topics = "my-annotated-topic", groupId = "myGroupId")
 public void processMessage(MyPojo message) {
         // ... message processing
 }
@@ -53,7 +56,7 @@ If you don't specify a kafkaTemplate name a bean with name `retryTopicDefaultKaf
 
 ==== Using `RetryTopicConfiguration` beans
 
-You can also configure the non-blocking retrial by creating `RetryTopicConfiguration` beans in a `@Configuration` annotated class.
+You can also configure the non-blocking retry support by creating `RetryTopicConfiguration` beans in a `@Configuration` annotated class.
 
 ====
 [source,    java]
@@ -97,13 +100,15 @@ public RetryTopicConfiguration myOtherRetryTopic(KafkaTemplate<String, MyOtherPo
 ----
 ====
 
+NOTE: The retry topics' and dlt's consumers will be assigned to a consumer group with a group id that is the combination of the one with you provide in the `groupId` parameter of the `@KafkaListener` annotation with the topic's suffix. If you don't provide any they'll all belong to the same group, and rebalance on a retry topic will cause an unnecessary rebalance on the main topic.
+
 === Features
 
 Most of the features are available both for the `@RetryableTopic` annotation and the `RetryTopicConfiguration` beans.
 
 ==== BackOff Configuration
 
-The BackOff configuration relies on the `BackOff` interface from the `Spring Retry` project.
+The BackOff configuration relies on the `BackOffPolicy` interface from the `Spring Retry` project.
 
 It includes:
 
@@ -193,7 +198,7 @@ You can also set it to traverse the causes to lookup nested exceptions.
 ====
 [source, java]
 ----
-@RetryableTopic(include = {MyRetryException.class, MyDontRetryException.class}, traversingCauses = true)
+@RetryableTopic(include = {MyRetryException.class, MyOtherRetryException.class}, traversingCauses = true)
 @KafkaListener(topics = "my-annotated-topic")
 public void processMessage(MyPojo message) {
         throw new RuntimeException(new MyRetryException()); // Will retry
@@ -255,7 +260,7 @@ NOTE: The default suffixes are "-retry" and "-dlt", for retry and dlt topics res
 You can specify the method used to process the Dlt for the topic, as well as the behaviour if that processing fails.
 
 To do that you can use the `@DltHandler` annotation in a method of the class with the `@RetryableTopic` annotation(s).
-Note that the same method will be used for all the `@RetryableTopic` annottated methods within that class.
+Note that the same method will be used for all the `@RetryableTopic` annotated methods within that class.
 
 ====
 [source, java]
@@ -307,10 +312,10 @@ NOTE: If no DLT handler is provided, the default RetryTopicConfigurer.LoggingDlt
 
 ==== Dlt Failure Behaviour
 
-Should the Dlt processing fail, there are two possible behaviours available: `ALWAYS_RETRY` and `ABORT`.
+Should the Dlt processing fail, there are two possible behaviors available: `ALWAYS_RETRY` and `FAIL`.
 
 In the former the message is forwarded back to the dlt topic so it doesn't block other dlt messages' processing.
-In the latter the consumer aborts the execution without forwarding the message.
+In the latter the consumer ends the execution without forwarding the message.
 
 ====
 [source, java]

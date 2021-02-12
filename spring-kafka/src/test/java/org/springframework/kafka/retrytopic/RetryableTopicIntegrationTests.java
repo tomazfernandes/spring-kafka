@@ -72,9 +72,13 @@ public class RetryableTopicIntegrationTests {
 	private static final Logger logger = LoggerFactory.getLogger(RetryableTopicIntegrationTests.class);
 
 	private final static String FIRST_TOPIC = "myRetryTopic1";
+
 	private final static String SECOND_TOPIC = "myRetryTopic2";
+
 	private final static String THIRD_TOPIC = "myRetryTopic4";
+
 	private final static String NOT_RETRYABLE_EXCEPTION_TOPIC = "noRetryTopic";
+
 	private final static String MAIN_TOPIC_CONTAINER_FACTORY = "kafkaListenerContainerFactory";
 
 	@Autowired

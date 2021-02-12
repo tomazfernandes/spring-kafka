@@ -53,6 +53,7 @@ public class BackOffValuesGenerator {
 	public static final int NOT_SET = -1;
 
 	private final int numberOfvaluesToCreate;
+
 	private final BackOffPolicy backOffPolicy;
 
 	public BackOffValuesGenerator(int providedMaxAttempts, BackOffPolicy providedBackOffPolicy) {

@@ -50,10 +50,13 @@ import org.springframework.util.ReflectionUtils;
 class RetryableTopicAnnotationProcessorTest {
 
 	private final String topic1 = "topic1";
+
 	private final String topic2 = "topic2";
+
 	private final String[] topics = {topic1, topic2};
 
-	static final String kafkaTemplateName = "kafkaTemplateBean";
+	private static final String kafkaTemplateName = "kafkaTemplateBean";
+
 	private final String listenerMethodName = "listenWithRetry";
 
 	@Mock
@@ -63,15 +66,21 @@ class RetryableTopicAnnotationProcessorTest {
 	private KafkaOperations<?, ?> kafkaOperationsFromDefaultName;
 
 	@Mock
-	BeanFactory beanFactory;
+	private BeanFactory beanFactory;
 
-	Method listenWithRetryAndDlt = ReflectionUtils.findMethod(RetryableTopicAnnotationFactoryWithDlt.class, listenerMethodName);
-	RetryableTopic annotationWithDlt = AnnotationUtils.findAnnotation(listenWithRetryAndDlt, RetryableTopic.class);
-	Object beanWithDlt = createBean();
+	// Retry with DLT
+	private Method listenWithRetryAndDlt = ReflectionUtils.findMethod(RetryableTopicAnnotationFactoryWithDlt.class, listenerMethodName);
 
-	Method listenWithRetry = ReflectionUtils.findMethod(RetryableTopicAnnotationFactory.class, listenerMethodName);
-	RetryableTopic annotation = AnnotationUtils.findAnnotation(listenWithRetry, RetryableTopic.class);
-	Object bean = createBean();
+	private RetryableTopic annotationWithDlt = AnnotationUtils.findAnnotation(listenWithRetryAndDlt, RetryableTopic.class);
+
+	private Object beanWithDlt = createBean();
+
+	// Retry without DLT
+	private Method listenWithRetry = ReflectionUtils.findMethod(RetryableTopicAnnotationFactory.class, listenerMethodName);
+
+	private RetryableTopic annotation = AnnotationUtils.findAnnotation(listenWithRetry, RetryableTopic.class);
+
+	private Object bean = createBean();
 
 	private Object createBean() {
 		try {
@@ -267,7 +276,7 @@ class RetryableTopicAnnotationProcessorTest {
 
 		@KafkaListener
 		@RetryableTopic(attempts = 3, backoff = @Backoff(multiplier = 2, value = 1000),
-			dltProcessingFailureStrategy = RetryTopicConfiguration.DltProcessingFailureStrategy.ABORT)
+			dltProcessingFailureStrategy = RetryTopicConfiguration.DltProcessingFailureStrategy.FAIL)
 		void listenWithRetry() {
 			// NoOps
 		}

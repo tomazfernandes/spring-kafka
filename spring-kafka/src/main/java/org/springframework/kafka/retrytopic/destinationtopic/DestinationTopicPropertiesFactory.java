@@ -41,13 +41,21 @@ import org.springframework.util.StringUtils;
 public class DestinationTopicPropertiesFactory {
 
 	private final static String MAIN_TOPIC_SUFFIX = "";
+
 	private final DestinationTopicSuffixes destinationTopicSuffixes;
+
 	private final List<Long> backOffValues;
+
 	private final BinaryExceptionClassifier exceptionClassifier;
+
 	private final int numPartitions;
+
 	private final int maxAttempts;
+
 	private final KafkaOperations<?, ?> kafkaOperations;
+
 	private final RetryTopicConfiguration.FixedDelayTopicStrategy fixedDelayTopicStrategy;
+
 	private final RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy;
 
 	public DestinationTopicPropertiesFactory(String retryTopicSuffix, String dltSuffix, int maxAttempts,

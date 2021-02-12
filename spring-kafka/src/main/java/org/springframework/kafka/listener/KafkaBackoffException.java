@@ -27,9 +27,13 @@ import org.springframework.kafka.KafkaException;
  * @since 2.7
  */
 public class KafkaBackoffException extends KafkaException {
+
 	private static final long serialVersionUID = 1L;
+
 	private final String listenerId;
+
 	private final TopicPartition topicPartition;
+
 	private final String dueTimestamp;
 
 	/**

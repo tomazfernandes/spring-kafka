@@ -33,6 +33,7 @@ import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 public class DestinationTopic {
 
 	private final String destinationName;
+
 	private final Properties properties;
 
 	public DestinationTopic(String destinationName, Properties properties) {

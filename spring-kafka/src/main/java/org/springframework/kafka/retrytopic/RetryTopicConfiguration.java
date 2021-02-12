@@ -34,10 +34,15 @@ import org.springframework.kafka.support.AllowDenyCollectionManager;
 public class RetryTopicConfiguration {
 
 	private final List<DestinationTopic.Properties> destinationTopicProperties;
+
 	private final AllowDenyCollectionManager<String> topicAllowListManager;
+
 	private final DeadLetterPublishingRecovererFactory.Configuration deadLetterProviderConfiguration;
+
 	private final RetryTopicConfigurer.EndpointHandlerMethod dltHandlerMethod;
+
 	private final TopicCreation kafkaTopicAutoCreation;
+
 	private final ListenerContainerFactoryResolver.Configuration factoryResolverConfig;
 
 	RetryTopicConfiguration(List<DestinationTopic.Properties> destinationTopicProperties,
@@ -134,8 +139,8 @@ public class RetryTopicConfiguration {
 		ALWAYS_RETRY,
 
 		/**
-		 * Abort if DLT processing fails.
+		 * Don't retry if DLT processing fails.
 		 */
-		ABORT
+		FAIL
 	}
 }

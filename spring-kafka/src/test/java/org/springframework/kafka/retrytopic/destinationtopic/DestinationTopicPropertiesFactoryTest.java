@@ -46,14 +46,21 @@ import org.springframework.retry.backoff.FixedBackOffPolicy;
 class DestinationTopicPropertiesFactoryTest {
 
 	private final String retryTopicSuffix = "test-retry-suffix";
+
 	private final String dltSuffix = "test-dlt-suffix";
+
 	private final int maxAttempts = 4;
+
 	private final int numPartitions = 0;
+
 	private final RetryTopicConfiguration.FixedDelayTopicStrategy fixedDelayTopicStrategy =
 			RetryTopicConfiguration.FixedDelayTopicStrategy.SINGLE_TOPIC;
+
 	private final RetryTopicConfiguration.DltProcessingFailureStrategy dltProcessingFailureStrategy =
-			RetryTopicConfiguration.DltProcessingFailureStrategy.ABORT;
+			RetryTopicConfiguration.DltProcessingFailureStrategy.FAIL;
+
 	private final BackOffPolicy backOffPolicy = new FixedBackOffPolicy();
+
 	private final BinaryExceptionClassifier classifier = new BinaryExceptionClassifierBuilder()
 			.retryOn(IllegalArgumentException.class).build();
 

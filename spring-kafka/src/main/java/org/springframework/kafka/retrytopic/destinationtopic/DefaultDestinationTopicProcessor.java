@@ -35,6 +35,7 @@ import java.util.stream.IntStream;
 public class DefaultDestinationTopicProcessor implements DestinationTopicProcessor {
 
 	private static final String NO_OPS_SUFFIX = "-noOps";
+
 	private final DestinationTopicResolver destinationTopicResolver;
 
 	public DefaultDestinationTopicProcessor(DestinationTopicResolver destinationTopicResolver) {

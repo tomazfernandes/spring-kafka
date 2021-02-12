@@ -39,22 +39,22 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 class ListenerContainerFactoryResolverTest {
 
 	@Mock
-	BeanFactory beanFactory;
+	private BeanFactory beanFactory;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromKafkaListenerAnnotation;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromKafkaListenerAnnotation;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromRetryTopicConfiguration;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromRetryTopicConfiguration;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromBeanName;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromBeanName;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromOtherBeanName;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromOtherBeanName;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromDefaultBeanName;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> factoryFromDefaultBeanName;
 
 	private final static String factoryName = "testListenerContainerFactory";
 	private final static String otherFactoryName = "otherTestListenerContainerFactory";

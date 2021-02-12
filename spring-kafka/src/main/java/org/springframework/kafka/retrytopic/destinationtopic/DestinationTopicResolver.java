@@ -42,7 +42,9 @@ public interface DestinationTopicResolver {
 	}
 
 	class DestinationsHolder {
+
 		private final DestinationTopic sourceDestination;
+
 		private final DestinationTopic nextDestination;
 
 		DestinationsHolder(DestinationTopic sourceDestination, DestinationTopic nextDestination) {

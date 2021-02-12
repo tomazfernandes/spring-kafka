@@ -64,67 +64,67 @@ import org.springframework.kafka.support.Acknowledgment;
 class ListenerContainerFactoryConfigurerTest {
 
 	@Mock
-	KafkaConsumerBackoffManager kafkaConsumerBackoffManager;
+	private KafkaConsumerBackoffManager kafkaConsumerBackoffManager;
 
 	@Mock
-	DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory;
+	private DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory;
 
 	@Mock
-	DeadLetterPublishingRecovererFactory.Configuration recovererConfiguration;
+	private DeadLetterPublishingRecovererFactory.Configuration recovererConfiguration;
 
 	@Mock
-	DeadLetterPublishingRecoverer recoverer;
+	private DeadLetterPublishingRecoverer recoverer;
 
 	@Mock
-	ContainerProperties containerProperties;
+	private ContainerProperties containerProperties;
 
 	@Captor
-	ArgumentCaptor<ErrorHandler> errorHandlerCaptor;
+	private ArgumentCaptor<ErrorHandler> errorHandlerCaptor;
 
-	ConsumerRecord<?, ?> record = new ConsumerRecord<>("test-topic", 1, 1234L, new Object(), new Object());
+	private ConsumerRecord<?, ?> record = new ConsumerRecord<>("test-topic", 1, 1234L, new Object(), new Object());
 
-	List<ConsumerRecord<?, ?>> records = Collections.singletonList(record);
-
-	@Mock
-	Consumer<?, ?> consumer;
+	private List<ConsumerRecord<?, ?>> records = Collections.singletonList(record);
 
 	@Mock
-	ConcurrentMessageListenerContainer<?, ?> container;
+	private Consumer<?, ?> consumer;
 
 	@Mock
-	OffsetCommitCallback offsetCommitCallback;
+	private ConcurrentMessageListenerContainer<?, ?> container;
 
 	@Mock
-	java.util.function.Consumer<ErrorHandler> errorHandlerCustomizer;
+	private OffsetCommitCallback offsetCommitCallback;
+
+	@Mock
+	private java.util.function.Consumer<ErrorHandler> errorHandlerCustomizer;
 
 	@SuppressWarnings("rawtypes")
 	@Captor
-	ArgumentCaptor<ContainerCustomizer> containerCustomizerCaptor;
+	private ArgumentCaptor<ContainerCustomizer> containerCustomizerCaptor;
 
 	@Mock
-	ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
+	private ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory;
 
 	@Mock
-	AcknowledgingConsumerAwareMessageListener<?, ?> listener;
+	private AcknowledgingConsumerAwareMessageListener<?, ?> listener;
 
 	@Captor
-	ArgumentCaptor<AbstractDelegatingMessageListenerAdapter<?>> listenerAdapterCaptor;
+	private ArgumentCaptor<AbstractDelegatingMessageListenerAdapter<?>> listenerAdapterCaptor;
 
 	@SuppressWarnings("rawtypes")
 	@Mock
-	ConsumerRecord data;
+	private ConsumerRecord data;
 
 	@Mock
-	Acknowledgment ack;
+	private Acknowledgment ack;
 
 	@Captor
-	ArgumentCaptor<LocalDateTime> timestampCaptor;
+	private ArgumentCaptor<LocalDateTime> timestampCaptor;
 
 	@Captor
-	ArgumentCaptor<String> listenerIdCaptor;
+	private ArgumentCaptor<String> listenerIdCaptor;
 
 	@Mock
-	java.util.function.Consumer<ConcurrentMessageListenerContainer<?, ?>> configurerContainerCustomizer;
+	private java.util.function.Consumer<ConcurrentMessageListenerContainer<?, ?>> configurerContainerCustomizer;
 
 	@Test
 	void shouldSetupErrorHandling() {

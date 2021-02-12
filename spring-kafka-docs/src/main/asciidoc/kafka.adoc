@@ -2583,7 +2583,7 @@ An error message is also logged when this condition occurs.
 * `ListenerContainerIdleEvent`: published when no messages have been received in `idleInterval` (if configured).
 * `ListenerContainerNoLongerIdleEvent`: published when a record is consumed after previously publishing a `ListenerContainerIdleEvent`.
 * `ListenerContainerPartitionIdleEvent`: published when no messages have been received from that partition in `idlePartitionEventInterval` (if configured).
-* `ListenerContainerPartitionNoLongerIdleEvent`: published when a record is consumed a partition that has previously published a `ListenerContainerPartitionIdleEvent`.
+* `ListenerContainerPartitionNoLongerIdleEvent`: published when a record is consumed from a partition that has previously published a `ListenerContainerPartitionIdleEvent`.
 * `NonResponsiveConsumerEvent`: published when the consumer appears to be blocked in the `poll` method.
 * `ConsumerPartitionPausedEvent`: published by each consumer when a partition is paused.
 * `ConsumerPartitionResumedEvent`: published by each consumer when a partition is resumed.
