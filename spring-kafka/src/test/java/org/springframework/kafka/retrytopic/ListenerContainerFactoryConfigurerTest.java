@@ -151,7 +151,7 @@ class ListenerContainerFactoryConfigurerTest {
 		RuntimeException ex = new RuntimeException();
 		seekToCurrent.handle(ex, records, consumer, container);
 
-		then(recoverer).should(times(1)).accept(record, ex);
+		then(recoverer).should(times(1)).accept(record, consumer, ex);
 		then(containerProperties).should(times(1))
 				.setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
 		then(consumer).should(times(1)).commitAsync(any(Map.class), eq(offsetCommitCallback));
