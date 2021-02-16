@@ -18,6 +18,7 @@ package org.springframework.kafka.retrytopic;
 
 import java.time.Clock;
 
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.SingletonBeanRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.RootBeanDefinition;
@@ -43,8 +44,10 @@ import org.springframework.kafka.retrytopic.destinationtopic.DestinationTopicCon
 public class RetryTopicBootstrapper {
 
 	private final ApplicationContext applicationContext;
+	private final BeanFactory beanFactory;
 
-	public RetryTopicBootstrapper(ApplicationContext applicationContext) {
+	public RetryTopicBootstrapper(ApplicationContext applicationContext, BeanFactory beanFactory) {
+		this.beanFactory = beanFactory;
 		if (!ConfigurableApplicationContext.class.isAssignableFrom(applicationContext.getClass()) ||
 			!BeanDefinitionRegistry.class.isAssignableFrom(applicationContext.getClass())) {
 			throw new IllegalStateException(String.format("ApplicationContext must be implement %s and %s interfaces. Provided: %s",
@@ -52,14 +55,18 @@ public class RetryTopicBootstrapper {
 					BeanDefinitionRegistry.class.getSimpleName(),
 					applicationContext.getClass().getSimpleName()));
 		}
+		if (!SingletonBeanRegistry.class.isAssignableFrom(this.beanFactory.getClass())) {
+			throw new IllegalStateException("BeanFactory must implement " + SingletonBeanRegistry.class +
+					" interface. Provided: " + this.beanFactory.getClass().getSimpleName());
+		}
 		this.applicationContext = applicationContext;
 	}
 
 	public void bootstrapRetryTopic() {
 		registerBeans();
+		configureBackoffClock();
 		configureDestinationTopicContainer();
 		configureKafkaConsumerBackoffManager();
-		configureBackoffClock();
 	}
 
 	private void registerBeans() {
@@ -79,7 +86,7 @@ public class RetryTopicBootstrapper {
 
 	private void configureBackoffClock() {
 		if (!this.applicationContext.containsBeanDefinition(RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_NAME)) {
-			((SingletonBeanRegistry) this.applicationContext).registerSingleton(
+			((SingletonBeanRegistry) this.beanFactory).registerSingleton(
 					RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_NAME, Clock.systemUTC());
 		}
 	}

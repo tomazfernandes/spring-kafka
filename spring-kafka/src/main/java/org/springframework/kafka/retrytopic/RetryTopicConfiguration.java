@@ -83,6 +83,10 @@ public class RetryTopicConfiguration {
 		return this.destinationTopicProperties;
 	}
 
+	public static RetryTopicConfigurationBuilder builder() {
+		return new RetryTopicConfigurationBuilder();
+	}
+
 	static class TopicCreation {
 
 		private final boolean shouldCreateTopics;

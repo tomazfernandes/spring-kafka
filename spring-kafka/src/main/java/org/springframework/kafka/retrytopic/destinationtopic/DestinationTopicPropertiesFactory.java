@@ -129,11 +129,18 @@ public class DestinationTopicPropertiesFactory {
 																	BiPredicate<Integer, Exception> shouldRetryOn) {
 		int indexInBackoffValues = index - 1;
 		String retrySuffix = this.destinationTopicSuffixes.getRetrySuffix();
-		return isFixedDelay()
+		return hasDuplicates()
 				? getProperties(topicType, shouldRetryOn, indexInBackoffValues,
 						isSingleTopicStrategy() ? retrySuffix : joinWithRetrySuffix(indexInBackoffValues, retrySuffix))
 				: getProperties(topicType, shouldRetryOn, indexInBackoffValues,
 						joinWithRetrySuffix(this.backOffValues.get(indexInBackoffValues), retrySuffix));
+	}
+
+	private boolean hasDuplicates() {
+		return this.backOffValues
+				.stream()
+				.distinct()
+				.count() != this.backOffValues.size();
 	}
 
 	private DestinationTopic.Properties getProperties(DestinationTopic.Type topicType,

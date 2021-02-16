@@ -359,10 +359,6 @@ public class RetryTopicConfigurer {
 		return new EndpointHandlerMethod(bean, method);
 	}
 
-	public static RetryTopicConfigurationBuilder builder() {
-		return new RetryTopicConfigurationBuilder();
-	}
-
 	public interface EndpointProcessor extends BiConsumer<MethodKafkaListenerEndpoint<?, ?>, EndpointProcessingCustomizerHolder> {
 	}
 

@@ -74,7 +74,7 @@ public class RetryableTopicAnnotationProcessor {
 	}
 
 	public RetryTopicConfiguration processAnnotation(String[] topics, Method method, RetryableTopic annotation, Object bean) {
-		return RetryTopicConfigurer.builder()
+		return RetryTopicConfiguration.builder()
 				.maxAttempts(annotation.attempts())
 				.customBackoff(createBackoffFromAnnotation(annotation.backoff(), this.beanFactory))
 				.retryTopicSuffix(annotation.retryTopicSuffix())
