@@ -61,7 +61,8 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	}
 
 	public void maybeBackoff(Context context) {
-		long backoffTime = ChronoUnit.MILLIS.between(Instant.now(this.clock), Instant.ofEpochMilli(context.dueTimestamp));
+		long backoffTime = ChronoUnit.MILLIS.between(Instant.now(this.clock),
+				Instant.ofEpochMilli(context.dueTimestamp));
 		if (backoffTime > 0) {
 			pauseConsumptionAndThrow(context, backoffTime);
 		}
@@ -72,23 +73,28 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		getListenerContainerFromContext(context).pausePartition(topicPartition);
 		addBackoff(context, topicPartition);
 		throw new KafkaBackoffException(String.format("Partition %s from topic %s is not ready for consumption, " +
-				"backing off for approx. %s millis.", context.topicPartition.partition(), context.topicPartition.topic(), timeToSleep),
+				"backing off for approx. %s millis.", context.topicPartition.partition(),
+				context.topicPartition.topic(), timeToSleep),
 				topicPartition, context.listenerId, context.dueTimestamp);
-	}
-
-	private MessageListenerContainer getListenerContainerFromContext(Context context) {
-		return this.registry.getListenerContainer(context.listenerId);
 	}
 
 	@Override
 	public void onApplicationEvent(ListenerContainerPartitionIdleEvent partitionIdleEvent) {
 		Context context = getBackoff(partitionIdleEvent.getTopicPartition());
-		if (context == null || Instant.now(this.clock).isBefore(Instant.ofEpochMilli(context.dueTimestamp))) {
+		if (context == null || isNotDue(context.dueTimestamp)) {
 			return;
 		}
 		MessageListenerContainer container = getListenerContainerFromContext(context);
 		container.resumePartition(context.topicPartition);
 		removeBackoff(context.topicPartition);
+	}
+
+	private boolean isNotDue(long dueTimestamp) {
+		return Instant.now(this.clock).isBefore(Instant.ofEpochMilli(dueTimestamp));
+	}
+
+	private MessageListenerContainer getListenerContainerFromContext(Context context) {
+		return this.registry.getListenerContainer(context.listenerId);
 	}
 
 	protected void addBackoff(Context context, TopicPartition topicPartition) {
