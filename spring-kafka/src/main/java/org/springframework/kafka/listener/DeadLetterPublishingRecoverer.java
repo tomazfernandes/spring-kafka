@@ -71,6 +71,8 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 
 	private static final long FIVE = 5L;
 
+	private final HeaderNames HEADER_NAMES = getHeaderNames();
+
 	private final boolean transactional;
 
 	private final BiFunction<ConsumerRecord<?, ?>, Exception, TopicPartition> destinationResolver;
@@ -177,6 +179,7 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 	* @param templateResolver the function that resolver the {@link KafkaOperations} to use for publishing.
 	* @param transactional whether or not publishing by this instance should be transactional
 	* @param destinationResolver the resolving function.
+	* @since 2.7
 	*/
 	public DeadLetterPublishingRecoverer(Function<ProducerRecord<?, ?>, KafkaOperations<?, ?>> templateResolver,
 										boolean transactional,
@@ -295,7 +298,7 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 		Headers headers = new RecordHeaders(record.headers().toArray());
 		if (kDeserEx != null && !this.retainExceptionHeader) {
 			headers.remove(ErrorHandlingDeserializer.KEY_DESERIALIZER_EXCEPTION_HEADER);
-			addExceptionInfoHeaders(headers, kDeserEx, true, getHeaderNames());
+			addExceptionInfoHeaders(headers, kDeserEx, true);
 		}
 		if (vDeserEx != null && !this.retainExceptionHeader) {
 			headers.remove(ErrorHandlingDeserializer.VALUE_DESERIALIZER_EXCEPTION_HEADER);
@@ -447,31 +450,34 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 		try {
 			sendResult.get(this.waitForSendResultTimeout, TimeUnit.MILLISECONDS);
 		}
-		catch (InterruptedException | ExecutionException | TimeoutException e) {
+		catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new KafkaException("Publication failed for: " + outRecord, e);
+		}
+		catch (ExecutionException | TimeoutException e) {
 			throw new KafkaException("Publication failed for: " + outRecord, e);
 		}
 	}
 
 	private void enhanceHeaders(Headers kafkaHeaders, ConsumerRecord<?, ?> record, Exception exception) {
-		HeaderNames headerNames = getHeaderNames();
-		maybeAddOriginalHeaders(kafkaHeaders, record, headerNames);
-		addExceptionInfoHeaders(kafkaHeaders, exception, false, headerNames);
+		maybeAddOriginalHeaders(kafkaHeaders, record);
+		addExceptionInfoHeaders(kafkaHeaders, exception, false);
 		Headers headers = this.headersFunction.apply(record, exception);
 		if (headers != null) {
 			headers.forEach(kafkaHeaders::add);
 		}
 	}
 
-	private void maybeAddOriginalHeaders(Headers kafkaHeaders, ConsumerRecord<?, ?> record, HeaderNames headerNames) {
-		maybeAddHeader(kafkaHeaders, headerNames.original.topicHeader,
+	private void maybeAddOriginalHeaders(Headers kafkaHeaders, ConsumerRecord<?, ?> record) {
+		maybeAddHeader(kafkaHeaders, this.HEADER_NAMES.original.topicHeader,
 				record.topic().getBytes(StandardCharsets.UTF_8));
-		maybeAddHeader(kafkaHeaders, headerNames.original.partitionHeader,
+		maybeAddHeader(kafkaHeaders, this.HEADER_NAMES.original.partitionHeader,
 				ByteBuffer.allocate(Integer.BYTES).putInt(record.partition()).array());
-		maybeAddHeader(kafkaHeaders, headerNames.original.offsetHeader,
+		maybeAddHeader(kafkaHeaders, this.HEADER_NAMES.original.offsetHeader,
 				ByteBuffer.allocate(Long.BYTES).putLong(record.offset()).array());
-		maybeAddHeader(kafkaHeaders, headerNames.original.timestampHeader,
+		maybeAddHeader(kafkaHeaders, this.HEADER_NAMES.original.timestampHeader,
 				ByteBuffer.allocate(Long.BYTES).putLong(record.timestamp()).array());
-		maybeAddHeader(kafkaHeaders, headerNames.original.timestampTypeHeader,
+		maybeAddHeader(kafkaHeaders, this.HEADER_NAMES.original.timestampTypeHeader,
 				record.timestampType().toString().getBytes(StandardCharsets.UTF_8));
 	}
 
@@ -482,20 +488,20 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 	}
 
 	void addExceptionInfoHeaders(Headers kafkaHeaders, Exception exception,
-								boolean isKey, HeaderNames headerNames) {
-		kafkaHeaders.add(new RecordHeader(isKey ? headerNames.exception.keyExceptionFqcn
-				: headerNames.exception.exceptionFqcn,
+								boolean isKey) {
+		kafkaHeaders.add(new RecordHeader(isKey ? this.HEADER_NAMES.exception.keyExceptionFqcn
+				: this.HEADER_NAMES.exception.exceptionFqcn,
 				exception.getClass().getName().getBytes(StandardCharsets.UTF_8)));
 		String message = exception.getMessage();
 		if (message != null) {
 			kafkaHeaders.add(new RecordHeader(isKey
-					? headerNames.exception.keyExceptionMessage
-					: headerNames.exception.exceptionMessage,
+					? this.HEADER_NAMES.exception.keyExceptionMessage
+					: this.HEADER_NAMES.exception.exceptionMessage,
 					exception.getMessage().getBytes(StandardCharsets.UTF_8)));
 		}
 		kafkaHeaders.add(new RecordHeader(isKey
-				? headerNames.exception.keyExceptionStacktrace
-				: headerNames.exception.exceptionStacktrace,
+				? this.HEADER_NAMES.exception.keyExceptionStacktrace
+				: this.HEADER_NAMES.exception.exceptionStacktrace,
 				getStackTraceAsString(exception).getBytes(StandardCharsets.UTF_8)));
 	}
 
@@ -509,7 +515,8 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 	/**
 	 * Override this if you want different header names to be used
 	 * in the sent record.
-	 * @return the default Dlt header names
+	 * @return the header names.
+	 * @since 2.7
 	 */
 	protected HeaderNames getHeaderNames() {
 		return DeadLetterPublishingHeaderNamesBuilder
@@ -530,7 +537,9 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 	}
 
 	/**
-	 * Container class for the headers that will be added to the produced record.
+	 * Container class for the name of the headers that will
+	 * be added to the produced record.
+	 * @since 2.7
 	 */
 	public static class HeaderNames {
 
@@ -583,6 +592,245 @@ public class DeadLetterPublishingRecoverer implements ConsumerAwareRecordRecover
 				this.exceptionMessage = exceptionMessage;
 				this.keyExceptionStacktrace = keyExceptionStacktrace;
 				this.exceptionStacktrace = exceptionStacktrace;
+			}
+		}
+	}
+
+
+	/**
+	 * Provides a convenient API for creating {@link DeadLetterPublishingRecoverer.HeaderNames}.
+	 *
+	 * @author Tomaz Fernandes
+	 * @since 2.7
+	 * @see DeadLetterPublishingRecoverer.HeaderNames
+	 */
+	public static class DeadLetterPublishingHeaderNamesBuilder {
+
+		private final Original original = new Original();
+
+		private final Exception exception = new Exception();
+
+		public static DeadLetterPublishingHeaderNamesBuilder.Original original() {
+			return new DeadLetterPublishingHeaderNamesBuilder().original;
+		}
+
+		/**
+		 * Headers for data relative to the original record.
+		 *
+		 * @author Tomaz Fernandes
+		 * @since 2.7
+		 */
+		public class Original {
+
+			private String offsetHeader;
+
+			private String timestampHeader;
+
+			private String timestampTypeHeader;
+
+			private String topicHeader;
+
+			private String partitionHeader;
+
+			/**
+			 * Sets the name of the header that will be used to store the offset
+			 * of the original record.
+			 * @param offsetHeader the offset header name.
+			 * @return the Original builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Original offsetHeader(String offsetHeader) {
+				this.offsetHeader = offsetHeader;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the timestamp
+			 * of the original record.
+			 * @param timestampHeader the timestamp header name.
+			 * @return the Original builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Original timestampHeader(String timestampHeader) {
+				this.timestampHeader = timestampHeader;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the timestampType
+			 * of the original record.
+			 * @param timestampTypeHeader the timestampType header name.
+			 * @return the Original builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Original timestampTypeHeader(String timestampTypeHeader) {
+				this.timestampTypeHeader = timestampTypeHeader;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the topic
+			 * of the original record.
+			 * @param topicHeader the topic header name.
+			 * @return the Original builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Original topicHeader(String topicHeader) {
+				this.topicHeader = topicHeader;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the partition
+			 * of the original record.
+			 * @param partitionHeader the partition header name.
+			 * @return the Original builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Original partitionHeader(String partitionHeader) {
+				this.partitionHeader = partitionHeader;
+				return this;
+			}
+
+			/**
+			 * Returns the exception builder.
+			 * @return the exception builder.
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Exception exception() {
+				return DeadLetterPublishingHeaderNamesBuilder.this.exception;
+			}
+
+			/**
+			 * Builds the Original header names, asserting that none of them is null.
+			 * @return the Original header names.
+			 * @since 2.7
+			 */
+			private DeadLetterPublishingRecoverer.HeaderNames.Original build() {
+				Assert.notNull(this.offsetHeader, "offsetHeader header cannot be null");
+				Assert.notNull(this.timestampHeader, "timestampHeader header cannot be null");
+				Assert.notNull(this.timestampTypeHeader, "timestampTypeHeader header cannot be null");
+				Assert.notNull(this.topicHeader, "topicHeader header cannot be null");
+				Assert.notNull(this.partitionHeader, "partitionHeader header cannot be null");
+				return new DeadLetterPublishingRecoverer.HeaderNames.Original(this.offsetHeader,
+						this.timestampHeader,
+						this.timestampTypeHeader,
+						this.topicHeader,
+						this.partitionHeader);
+			}
+		}
+
+		/**
+		 * Headers for data relative to the exception thrown.
+		 *
+		 * @author Tomaz Fernandes
+		 * @since 2.7
+		 */
+		public class Exception {
+
+			private String keyExceptionFqcn;
+
+			private String exceptionFqcn;
+
+			private String keyExceptionMessage;
+
+			private String exceptionMessage;
+
+			private String keyExceptionStacktrace;
+
+			private String exceptionStacktrace;
+
+			/**
+			 * Sets the name of the header that will be used to store the keyExceptionFqcn
+			 * of the original record.
+			 * @param keyExceptionFqcn the keyExceptionFqcn header name.
+			 * @return the Exception builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Exception keyExceptionFqcn(String keyExceptionFqcn) {
+				this.keyExceptionFqcn = keyExceptionFqcn;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the exceptionFqcn
+			 * of the original record.
+			 * @param exceptionFqcn the exceptionFqcn header name.
+			 * @return the Exception builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Exception exceptionFqcn(String exceptionFqcn) {
+				this.exceptionFqcn = exceptionFqcn;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the keyExceptionMessage
+			 * of the original record.
+			 * @param keyExceptionMessage the keyExceptionMessage header name.
+			 * @return the Exception builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Exception keyExceptionMessage(String keyExceptionMessage) {
+				this.keyExceptionMessage = keyExceptionMessage;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the exceptionMessage
+			 * of the original record.
+			 * @param exceptionMessage the exceptionMessage header name.
+			 * @return the Exception builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Exception exceptionMessage(String exceptionMessage) {
+				this.exceptionMessage = exceptionMessage;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the
+			 * keyExceptionStacktrace of the original record.
+			 * @param keyExceptionStacktrace the keyExceptionStacktrace header name.
+			 * @return the Exception builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Exception keyExceptionStacktrace(String keyExceptionStacktrace) {
+				this.keyExceptionStacktrace = keyExceptionStacktrace;
+				return this;
+			}
+
+			/**
+			 * Sets the name of the header that will be used to store the
+			 * exceptionStacktrace of the original record.
+			 * @param exceptionStacktrace the exceptionStacktrace header name.
+			 * @return the Exception builder instance
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingHeaderNamesBuilder.Exception exceptionStacktrace(String exceptionStacktrace) {
+				this.exceptionStacktrace = exceptionStacktrace;
+				return this;
+			}
+
+			/**
+			 * Builds the Header Names, asserting that none of them is null.
+			 * @return the HeaderNames instance.
+			 * @since 2.7
+			 */
+			public DeadLetterPublishingRecoverer.HeaderNames build() {
+				Assert.notNull(this.keyExceptionFqcn, "keyExceptionFqcn header cannot be null");
+				Assert.notNull(this.exceptionFqcn, "exceptionFqcn header cannot be null");
+				Assert.notNull(this.keyExceptionMessage, "keyExceptionMessage header cannot be null");
+				Assert.notNull(this.exceptionMessage, "exceptionMessage header cannot be null");
+				Assert.notNull(this.keyExceptionStacktrace, "keyExceptionStacktrace header cannot be null");
+				Assert.notNull(this.exceptionStacktrace, "exceptionStacktrace header cannot be null");
+				return new DeadLetterPublishingRecoverer.HeaderNames(DeadLetterPublishingHeaderNamesBuilder.this.original.build(),
+						new DeadLetterPublishingRecoverer.HeaderNames.Exception(this.keyExceptionFqcn,
+								this.exceptionFqcn,
+								this.keyExceptionMessage,
+								this.exceptionMessage,
+								this.keyExceptionStacktrace,
+								this.exceptionStacktrace));
 			}
 		}
 	}

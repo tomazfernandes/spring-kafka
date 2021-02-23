@@ -33,6 +33,12 @@ import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
  * A manager that backs off consumption for a given topic if the timestamp provided is not
  * due. Use with {@link SeekToCurrentErrorHandler} to guarantee that the message is read
  * again after partition consumption is resumed (or seek it manually by other means).
+ * It's also necessary to set a {@link ContainerProperties#setIdlePartitionEventInterval(Long)}
+ * so the Manager can resume the partition consumption.
+ *
+ * Note that when a record backs off the partition consumption gets paused for
+ * approximately that amount of time, so you must have a fixed backoff value per partition
+ * in order to make sure no record waits more than it should.
  *
  * @author Tomaz Fernandes
  * @author Gary Russell
@@ -60,6 +66,11 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		this.backOffTimes = new HashMap<>();
 	}
 
+	/**
+	 * Backs off if the current time is before the dueTimestamp provided
+	 * in the {@link Context} object.
+	 * @param context the state that will be used for backing off.
+	 */
 	public void maybeBackoff(Context context) {
 		long backoffTime = ChronoUnit.MILLIS.between(Instant.now(this.clock),
 				Instant.ofEpochMilli(context.dueTimestamp));
@@ -119,10 +130,15 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		return new Context(dueTimestamp, listenerId, topicPartition);
 	}
 
+	/**
+	 * Provides the state that will be used for backing off.
+	 * @since 2.7
+	 */
 	public static class Context {
 
 		/**
-		 * The time after which the message should be processed.
+		 * The time after which the message should be processed,
+		 * in milliseconds since epoch.
 		 */
 		final long dueTimestamp; // NOSONAR
 

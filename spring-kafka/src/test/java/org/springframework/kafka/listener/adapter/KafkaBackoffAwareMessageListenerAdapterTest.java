@@ -144,7 +144,7 @@ class KafkaBackoffAwareMessageListenerAdapterTest {
 		then(kafkaConsumerBackoffManager).should(times(1))
 				.maybeBackoff(context);
 
-		then(delegate).should(times(1)).onMessage(data);
+		then(delegate).should(times(1)).onMessage(data, null, null);
 	}
 
 	@Test
@@ -166,7 +166,7 @@ class KafkaBackoffAwareMessageListenerAdapterTest {
 		then(kafkaConsumerBackoffManager).should(times(1))
 				.maybeBackoff(context);
 
-		then(delegate).should(times(1)).onMessage(data, ack);
+		then(delegate).should(times(1)).onMessage(data, ack, null);
 	}
 
 	@Test
@@ -188,7 +188,7 @@ class KafkaBackoffAwareMessageListenerAdapterTest {
 		then(kafkaConsumerBackoffManager).should(times(1))
 				.maybeBackoff(context);
 
-		then(delegate).should(times(1)).onMessage(data, consumer);
+		then(delegate).should(times(1)).onMessage(data, null, consumer);
 	}
 
 	@Test

@@ -28,7 +28,6 @@ import org.apache.kafka.common.header.internals.RecordHeaders;
 
 import org.springframework.core.NestedRuntimeException;
 import org.springframework.kafka.core.KafkaOperations;
-import org.springframework.kafka.listener.DeadLetterPublishingHeaderNamesBuilder;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.KafkaBackoffException;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -44,8 +43,6 @@ import org.springframework.kafka.support.KafkaHeaders;
  */
 public class DeadLetterPublishingRecovererFactory {
 
-	private static final String NO_OPS_RETRY_TOPIC = "internal-kafka-noOpsRetry";
-
 	private final DestinationTopicResolver destinationTopicResolver;
 
 	private Consumer<DeadLetterPublishingRecoverer> recovererCustomizer = recoverer -> { };
@@ -57,7 +54,7 @@ public class DeadLetterPublishingRecovererFactory {
 	@SuppressWarnings("unchecked")
 	public DeadLetterPublishingRecoverer create() {
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-				outRecord -> resolveTemplate(outRecord),
+				this::resolveTemplate,
 				false, (this::resolveDestination)) {
 
 			@Override
