@@ -77,7 +77,9 @@ public class DeadLetterPublishingRecovererTests {
 		given(template.isTransactional()).willReturn(true);
 		given(template.inTransaction()).willReturn(false);
 		given(template.isAllowNonTransactional()).willReturn(true);
-		given(template.send(any(ProducerRecord.class))).willReturn(new SettableListenableFuture());
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		given(template.send(any(ProducerRecord.class))).willReturn(future);
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, "bar", "baz");
 		Consumer consumer = mock(Consumer.class);
@@ -102,7 +104,9 @@ public class DeadLetterPublishingRecovererTests {
 		KafkaOperations<?, ?> template = mock(KafkaOperations.class);
 		given(template.isTransactional()).willReturn(true);
 		given(template.inTransaction()).willReturn(true);
-		given(template.send(any(ProducerRecord.class))).willReturn(new SettableListenableFuture());
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		given(template.send(any(ProducerRecord.class))).willReturn(future);
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, "bar", "baz");
 		recoverer.accept(record, new RuntimeException());
@@ -115,7 +119,9 @@ public class DeadLetterPublishingRecovererTests {
 	void testNonTx() {
 		KafkaOperations<?, ?> template = mock(KafkaOperations.class);
 		given(template.isTransactional()).willReturn(false);
-		given(template.send(any(ProducerRecord.class))).willReturn(new SettableListenableFuture());
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		given(template.send(any(ProducerRecord.class))).willReturn(future);
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, "bar", "baz");
 		recoverer.accept(record, new RuntimeException());
@@ -135,7 +141,9 @@ public class DeadLetterPublishingRecovererTests {
 			((OperationsCallback) inv.getArgument(0)).doInOperations(template);
 			return null;
 		}).given(template).executeInTransaction(any());
-		given(template.send(any(ProducerRecord.class))).willReturn(new SettableListenableFuture());
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		given(template.send(any(ProducerRecord.class))).willReturn(future);
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, "bar", "baz");
 		recoverer.accept(record, new RuntimeException());
@@ -154,7 +162,9 @@ public class DeadLetterPublishingRecovererTests {
 		Headers custom = new RecordHeaders();
 		custom.add(new RecordHeader("foo", "bar".getBytes()));
 		recoverer.setHeadersFunction((rec, ex) -> custom);
-		willReturn(new SettableListenableFuture<Object>()).given(template).send(any(ProducerRecord.class));
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		willReturn(future).given(template).send(any(ProducerRecord.class));
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, 0L, TimestampType.CREATE_TIME,
 				0L, 0, 0, "bar", "baz", headers);
 		recoverer.accept(record, new RuntimeException("testV"));
@@ -178,7 +188,9 @@ public class DeadLetterPublishingRecovererTests {
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
 		Headers headers = new RecordHeaders();
 		headers.add(new RecordHeader(ErrorHandlingDeserializer.KEY_DESERIALIZER_EXCEPTION_HEADER, header(true)));
-		willReturn(new SettableListenableFuture<Object>()).given(template).send(any(ProducerRecord.class));
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		willReturn(future).given(template).send(any(ProducerRecord.class));
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, 0L, TimestampType.CREATE_TIME,
 				0L, 0, 0, "bar", "baz", headers);
 		recoverer.accept(record, new RuntimeException());
@@ -197,7 +209,9 @@ public class DeadLetterPublishingRecovererTests {
 		Headers headers = new RecordHeaders();
 		headers.add(new RecordHeader(ErrorHandlingDeserializer.VALUE_DESERIALIZER_EXCEPTION_HEADER, header(false)));
 		headers.add(new RecordHeader(ErrorHandlingDeserializer.KEY_DESERIALIZER_EXCEPTION_HEADER, header(true)));
-		willReturn(new SettableListenableFuture<Object>()).given(template).send(any(ProducerRecord.class));
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		willReturn(future).given(template).send(any(ProducerRecord.class));
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, 0L, TimestampType.CREATE_TIME,
 				0L, 0, 0, "bar", "baz", headers);
 		recoverer.accept(record, new RuntimeException());
@@ -212,7 +226,9 @@ public class DeadLetterPublishingRecovererTests {
 	@Test
 	void tombstoneWithMultiTemplates() {
 		KafkaOperations<?, ?> template1 = mock(KafkaOperations.class);
-		given(template1.send(any(ProducerRecord.class))).willReturn(new SettableListenableFuture());
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		given(template1.send(any(ProducerRecord.class))).willReturn(future);
 		KafkaOperations<?, ?> template2 = mock(KafkaOperations.class);
 		Map<Class<?>, KafkaOperations<?, ?>> templates = new LinkedHashMap<>();
 		templates.put(String.class, template1);
@@ -228,7 +244,9 @@ public class DeadLetterPublishingRecovererTests {
 	void tombstoneWithMultiTemplatesExplicit() {
 		KafkaOperations<?, ?> template1 = mock(KafkaOperations.class);
 		KafkaOperations<?, ?> template2 = mock(KafkaOperations.class);
-		given(template2.send(any(ProducerRecord.class))).willReturn(new SettableListenableFuture());
+		SettableListenableFuture future = new SettableListenableFuture();
+		future.set(new Object());
+		given(template2.send(any(ProducerRecord.class))).willReturn(future);
 		Map<Class<?>, KafkaOperations<?, ?>> templates = new LinkedHashMap<>();
 		templates.put(String.class, template1);
 		templates.put(Void.class, template2);
@@ -350,11 +368,11 @@ public class DeadLetterPublishingRecovererTests {
 		ConsumerRecord<String, String> record = new ConsumerRecord<>("foo", 0, 0L, "bar", null);
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template);
 		recoverer.setFailIfSendResultIsError(true);
-		long waitForSendResultTimeout = 1000L;
+		Duration waitForSendResultTimeout = Duration.ofSeconds(1);
 		recoverer.setWaitForSendResultTimeout(waitForSendResultTimeout);
 		assertThatThrownBy(() -> recoverer.accept(record, new RuntimeException()))
 				.isExactlyInstanceOf(KafkaException.class);
-		assertThat(timeoutCaptor.getValue()).isEqualTo(waitForSendResultTimeout);
+		assertThat(timeoutCaptor.getValue()).isEqualTo(waitForSendResultTimeout.toMillis());
 	}
 
 	@SuppressWarnings("unchecked")

@@ -59,7 +59,7 @@ public class DeadLetterPublishingRecovererFactory {
 
 			@Override
 			protected DeadLetterPublishingRecoverer.HeaderNames getHeaderNames() {
-				return DeadLetterPublishingHeaderNamesBuilder
+				return DeadLetterPublishingRecoverer.HeaderNames.Builder
 						.original()
 							.offsetHeader(KafkaHeaders.ORIGINAL_OFFSET)
 							.timestampHeader(KafkaHeaders.ORIGINAL_TIMESTAMP)
