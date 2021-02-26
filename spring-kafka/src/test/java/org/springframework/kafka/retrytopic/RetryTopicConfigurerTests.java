@@ -119,6 +119,8 @@ class RetryTopicConfigurerTests {
 
 	private static final List<String> topics = Arrays.asList("topic1", "topic2");
 
+	private static final String defaultFactoryBeanName = "defaultTestFactory";
+
 	// Captors
 
 	@Captor
@@ -172,7 +174,8 @@ class RetryTopicConfigurerTests {
 
 		// when - then
 		assertThrows(IllegalArgumentException.class,
-				() -> configurer.processMainAndRetryListeners(endpointProcessor, multiMethodEndpoint, configuration, registrar, containerFactory));
+				() -> configurer.processMainAndRetryListeners(endpointProcessor, multiMethodEndpoint, configuration,
+						registrar, containerFactory, defaultFactoryBeanName));
 	}
 
 	@Test
@@ -204,8 +207,9 @@ class RetryTopicConfigurerTests {
 		given(topicCreationConfig.shouldCreateTopics()).willReturn(true);
 
 		given(configuration.forContainerFactoryResolver()).willReturn(factoryResolverConfig);
-		willReturn(containerFactory).given(containerFactoryResolver).resolveFactoryForMainEndpoint(any(KafkaListenerContainerFactory.class),
-				eq(factoryResolverConfig));
+		willReturn(containerFactory).given(containerFactoryResolver)
+				.resolveFactoryForMainEndpoint(any(KafkaListenerContainerFactory.class),
+				eq(defaultFactoryBeanName), eq(factoryResolverConfig));
 		given(mainDestinationProperties.suffix()).willReturn(mainEndpointSuffix);
 		given(firstRetryDestinationProperties.suffix()).willReturn(firstRetrySuffix);
 		given(secondRetryDestinationProperties.suffix()).willReturn(secondRetrySuffix);
@@ -213,14 +217,16 @@ class RetryTopicConfigurerTests {
 		given(mainDestinationProperties.isMainEndpoint()).willReturn(true);
 		given(mainEndpoint.getTopics()).willReturn(topics);
 
-		willReturn(containerFactory).given(containerFactoryResolver).resolveFactoryForRetryEndpoint(containerFactory, factoryResolverConfig);
+		willReturn(containerFactory).given(containerFactoryResolver).resolveFactoryForRetryEndpoint(containerFactory,
+				defaultFactoryBeanName, factoryResolverConfig);
 		willReturn(containerFactory).given(this.listenerContainerFactoryConfigurer).configure(containerFactory);
 
 		RetryTopicConfigurer configurer = new RetryTopicConfigurer(destinationTopicProcessor, containerFactoryResolver,
 				listenerContainerFactoryConfigurer, defaultListableBeanFactory);
 
 		// when
-		configurer.processMainAndRetryListeners(endpointProcessor, mainEndpoint, configuration, registrar, containerFactory);
+		configurer.processMainAndRetryListeners(endpointProcessor, mainEndpoint, configuration, registrar,
+				containerFactory, defaultFactoryBeanName);
 
 		// then
 
