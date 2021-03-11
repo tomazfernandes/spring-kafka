@@ -26,12 +26,14 @@ import java.math.BigInteger;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
 import org.springframework.kafka.retrytopic.TestClockUtils;
@@ -43,39 +45,50 @@ import org.springframework.kafka.retrytopic.TestClockUtils;
 @ExtendWith(MockitoExtension.class)
 class KafkaConsumerBackoffManagerTest {
 
-	private final String testListenerId = "testListenerId";
-
 	@Mock
 	private KafkaListenerEndpointRegistry registry;
 
 	@Mock
 	private MessageListenerContainer listenerContainer;
 
-	private Clock clock = TestClockUtils.CLOCK;
-
-	private String testTopic = "testTopic";
-
-	private int testPartition = 0;
-
-	private TopicPartition topicPartition = new TopicPartition(testTopic, testPartition);
-
 	@Mock
 	private ListenerContainerPartitionIdleEvent partitionIdleEvent;
 
-	private long originalTimestamp = Instant.now(this.clock).toEpochMilli();
+	@Mock
+	private TaskExecutor taskExecutor;
 
-	private byte[] originalTimestampBytes = BigInteger.valueOf(originalTimestamp).toByteArray();
+	@Mock
+	private Consumer<?, ?> consumer;
+
+	@Mock
+	private ContainerProperties containerProperties;
+
+	private static final String testListenerId = "testListenerId";
+
+	private static final Clock clock = TestClockUtils.CLOCK;
+
+	private static final String testTopic = "testTopic";
+
+	private static final int testPartition = 0;
+
+	private static final TopicPartition topicPartition = new TopicPartition(testTopic, testPartition);
+
+	private static final long originalTimestamp = Instant.now(clock).toEpochMilli();
+
+	private static final byte[] originalTimestampBytes = BigInteger.valueOf(originalTimestamp).toByteArray();
+
 
 	@Test
 	void shouldBackoffgivenDueTimestampIsLater() {
 
 		// setup
 		given(this.registry.getListenerContainer(testListenerId)).willReturn(listenerContainer);
-		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock);
+		given(registry.getListenerContainer(testListenerId)).willReturn(listenerContainer);
+		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock, taskExecutor);
 
 		long dueTimestamp = originalTimestamp + 5000;
 		KafkaConsumerBackoffManager.Context context =
-				backoffManager.createContext(dueTimestamp, testListenerId, topicPartition);
+				backoffManager.createContext(dueTimestamp, testListenerId, topicPartition, consumer);
 
 		// given
 		KafkaBackoffException backoffException = catchThrowableOfType(() -> backoffManager.maybeBackoff(context),
@@ -85,7 +98,7 @@ class KafkaConsumerBackoffManagerTest {
 		assertThat(backoffException.getDueTimestamp()).isEqualTo(dueTimestamp);
 		assertThat(backoffException.getListenerId()).isEqualTo(testListenerId);
 		assertThat(backoffException.getTopicPartition()).isEqualTo(topicPartition);
-		assertThat(backoffManager.getBackoff(topicPartition)).isEqualTo(context);
+		assertThat(backoffManager.getBackOffContext(topicPartition)).isEqualTo(context);
 		then(listenerContainer).should(times(1)).pausePartition(topicPartition);
 	}
 
@@ -93,15 +106,15 @@ class KafkaConsumerBackoffManagerTest {
 	void shouldNotBackoffgivenDueTimestampIsPast() {
 
 		// setup
-		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock);
+		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock, taskExecutor);
 		KafkaConsumerBackoffManager.Context context =
-				backoffManager.createContext(originalTimestamp - 5000, testListenerId, topicPartition);
+				backoffManager.createContext(originalTimestamp - 5000, testListenerId, topicPartition, consumer);
 
 		// given
 		backoffManager.maybeBackoff(context);
 
 		// then
-		assertThat(backoffManager.getBackoff(topicPartition)).isNull();
+		assertThat(backoffManager.getBackOffContext(topicPartition)).isNull();
 		then(listenerContainer).should(times(0)).pausePartition(topicPartition);
 	}
 
@@ -110,17 +123,21 @@ class KafkaConsumerBackoffManagerTest {
 
 		// setup
 		given(this.partitionIdleEvent.getTopicPartition()).willReturn(topicPartition);
-		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock);
+		given(registry.getListenerContainer(testListenerId)).willReturn(listenerContainer);
+		given(listenerContainer.getContainerProperties()).willReturn(containerProperties);
+		given(containerProperties.getPollTimeout()).willReturn(500L);
+
+		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock, taskExecutor);
 
 		KafkaConsumerBackoffManager.Context context =
-				backoffManager.createContext(originalTimestamp + 5000, testListenerId, topicPartition);
+				backoffManager.createContext(originalTimestamp + 5000, testListenerId, topicPartition, consumer);
 		backoffManager.addBackoff(context, topicPartition);
 
 		// given
 		backoffManager.onApplicationEvent(partitionIdleEvent);
 
 		// then
-		assertThat(backoffManager.getBackoff(topicPartition)).isEqualTo(context);
+		assertThat(backoffManager.getBackOffContext(topicPartition)).isEqualTo(context);
 		then(listenerContainer).should(times(0)).resumePartition(topicPartition);
 	}
 
@@ -128,18 +145,22 @@ class KafkaConsumerBackoffManagerTest {
 	void shouldResumePartitionIfIdleAfterDueTimestamp() {
 
 		// setup
+		given(registry.getListenerContainer(testListenerId)).willReturn(listenerContainer);
+		given(listenerContainer.getContainerProperties()).willReturn(containerProperties);
+		given(containerProperties.getPollTimeout()).willReturn(500L);
+
 		given(this.registry.getListenerContainer(testListenerId)).willReturn(listenerContainer);
 		given(this.partitionIdleEvent.getTopicPartition()).willReturn(topicPartition);
-		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock);
+		KafkaConsumerBackoffManager backoffManager = new KafkaConsumerBackoffManager(registry, clock, taskExecutor);
 		KafkaConsumerBackoffManager.Context context =
-				backoffManager.createContext(originalTimestamp - 5000, testListenerId, topicPartition);
+				backoffManager.createContext(originalTimestamp - 5000, testListenerId, topicPartition, consumer);
 		backoffManager.addBackoff(context, topicPartition);
 
 		// given
 		backoffManager.onApplicationEvent(partitionIdleEvent);
 
 		// then
-		assertThat(backoffManager.getBackoff(topicPartition)).isNull();
+		assertThat(backoffManager.getBackOffContext(topicPartition)).isNull();
 		then(listenerContainer).should(times(1)).resumePartition(topicPartition);
 	}
 }

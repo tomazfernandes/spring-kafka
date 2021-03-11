@@ -1260,6 +1260,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			resumeConsumerIfNeccessary();
 			resumePartitionsIfNecessary();
 			debugRecords(records);
+
 			if (records != null && records.count() > 0) {
 				savePositionsIfNeeded(records);
 				notIdle();
@@ -1268,6 +1269,9 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			}
 			else {
 				checkIdle();
+			}
+			if (records == null || records.count() == 0
+					|| records.partitions().size() < this.consumer.assignment().size()) {
 				checkIdlePartitions();
 			}
 		}
@@ -1491,7 +1495,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			if (partitionsToResume.size() > 0) {
 				this.consumer.resume(partitionsToResume);
 				this.pausedPartitions.removeAll(partitionsToResume);
-				this.logger.debug(() -> "Resumed consumption from " + partitionsToResume);
+				this.logger.info(() -> "Resumed consumption from " + partitionsToResume);
 				partitionsToResume.forEach(KafkaMessageListenerContainer.this::publishConsumerPartitionResumedEvent);
 			}
 		}
@@ -2212,7 +2216,12 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 					commitOffsetsIfNeeded(record);
 				}
 				catch (KafkaException ke) {
-					ke.selfLog(ERROR_HANDLER_THREW_AN_EXCEPTION, this.logger);
+					if (ke.contains(KafkaBackoffException.class)) {
+						this.logger.warn(ke.getMessage());
+					}
+					else {
+						ke.selfLog(ERROR_HANDLER_THREW_AN_EXCEPTION, this.logger);
+					}
 					return ke;
 				}
 				catch (RuntimeException ee) {

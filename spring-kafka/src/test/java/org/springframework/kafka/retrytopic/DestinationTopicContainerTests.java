@@ -46,6 +46,8 @@ class DestinationTopicContainerTests extends DestinationTopicTests {
 
 	private final long originalTimestamp = Instant.now(this.clock).toEpochMilli();
 
+	private final long failureTimestamp = Instant.now(this.clock).plusMillis(500).toEpochMilli();
+
 	private final byte[] originalTimestampBytes = BigInteger.valueOf(originalTimestamp).toByteArray();
 
 	@BeforeEach
@@ -173,21 +175,21 @@ class DestinationTopicContainerTests extends DestinationTopicTests {
 	void shouldResolveDestinationNextExecutionTime() {
 		RuntimeException e = new IllegalArgumentException();
 		assertThat(destinationTopicContainer.resolveDestinationNextExecutionTimestamp(
-					mainDestinationTopic.getDestinationName(), 0, e, originalTimestamp))
+					mainDestinationTopic.getDestinationName(), 0, e, failureTimestamp, originalTimestamp))
 				.isEqualTo(getExpectedNextExecutionTime(firstRetryDestinationTopic));
 		assertThat(destinationTopicContainer.resolveDestinationNextExecutionTimestamp(
-					firstRetryDestinationTopic.getDestinationName(), 0, e, originalTimestamp))
+					firstRetryDestinationTopic.getDestinationName(), 0, e, failureTimestamp, originalTimestamp))
 				.isEqualTo(getExpectedNextExecutionTime(secondRetryDestinationTopic));
 		assertThat(destinationTopicContainer.resolveDestinationNextExecutionTimestamp(
-					secondRetryDestinationTopic.getDestinationName(), 0, e, originalTimestamp))
+					secondRetryDestinationTopic.getDestinationName(), 0, e, failureTimestamp, originalTimestamp))
 				.isEqualTo(getExpectedNextExecutionTime(dltDestinationTopic));
 		assertThat(destinationTopicContainer.resolveDestinationNextExecutionTimestamp(
-					dltDestinationTopic.getDestinationName(), 0, e, originalTimestamp))
+					dltDestinationTopic.getDestinationName(), 0, e, failureTimestamp, originalTimestamp))
 				.isEqualTo(getExpectedNextExecutionTime(noOpsDestinationTopic));
 	}
 
 	private long getExpectedNextExecutionTime(DestinationTopic destinationTopic) {
-		return originalTimestamp + destinationTopic.getDestinationDelay();
+		return failureTimestamp + destinationTopic.getDestinationDelay();
 	}
 
 	@Test

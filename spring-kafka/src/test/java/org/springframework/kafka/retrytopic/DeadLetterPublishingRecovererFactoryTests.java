@@ -96,6 +96,8 @@ class DeadLetterPublishingRecovererFactoryTests {
 
 	private final long nowTimestamp = Instant.now(this.clock).toEpochMilli();
 
+	private final long failureTimestamp = Instant.now(this.clock).minusMillis(500).toEpochMilli();
+
 	@Test
 	void shouldSendMessage() {
 		// setup
@@ -104,7 +106,8 @@ class DeadLetterPublishingRecovererFactoryTests {
 		given(destinationTopic.isNoOpsTopic()).willReturn(false);
 		given(destinationTopic.getDestinationName()).willReturn(testRetryTopic);
 		given(destinationTopic.getDestinationPartitions()).willReturn(3);
-		given(destinationTopicResolver.resolveDestinationNextExecutionTimestamp(testTopic, 1, e, originalTimestamp))
+		given(destinationTopicResolver
+				.resolveDestinationNextExecutionTimestamp(testTopic, 1, e, RetryTopicConstants.NOT_SET, originalTimestamp))
 				.willReturn(this.nowTimestamp);
 		given(destinationTopicResolver.getCurrentTopic(testRetryTopic)).willReturn(destinationTopic);
 		willReturn(this.kafkaOperations2).given(destinationTopic).getKafkaOperations();
@@ -147,7 +150,8 @@ class DeadLetterPublishingRecovererFactoryTests {
 		given(destinationTopic.isNoOpsTopic()).willReturn(false);
 		given(destinationTopic.getDestinationName()).willReturn(testRetryTopic);
 		given(destinationTopic.getDestinationPartitions()).willReturn(1);
-		given(destinationTopicResolver.resolveDestinationNextExecutionTimestamp(testTopic, 1, e, this.originalTimestamp))
+		given(destinationTopicResolver.resolveDestinationNextExecutionTimestamp(testTopic, 1, e,
+				RetryTopicConstants.NOT_SET, this.originalTimestamp))
 				.willReturn(this.nowTimestamp);
 		given(destinationTopicResolver.getCurrentTopic(testRetryTopic)).willReturn(destinationTopic);
 		willReturn(this.kafkaOperations2).given(destinationTopic).getKafkaOperations();
@@ -181,7 +185,8 @@ class DeadLetterPublishingRecovererFactoryTests {
 		given(destinationTopic.getDestinationPartitions()).willReturn(1);
 		given(destinationTopicResolver.getCurrentTopic(testRetryTopic)).willReturn(destinationTopic);
 		long nextExecutionTimestamp = this.nowTimestamp + destinationTopic.getDestinationDelay();
-		given(destinationTopicResolver.resolveDestinationNextExecutionTimestamp(testTopic, 1, e, this.originalTimestamp))
+		given(destinationTopicResolver.resolveDestinationNextExecutionTimestamp(testTopic, 1, e,
+				RetryTopicConstants.NOT_SET, this.originalTimestamp))
 				.willReturn(nextExecutionTimestamp);
 		willReturn(this.kafkaOperations2).given(destinationTopic).getKafkaOperations();
 		given(kafkaOperations2.send(any(ProducerRecord.class))).willReturn(listenableFuture);
@@ -215,7 +220,8 @@ class DeadLetterPublishingRecovererFactoryTests {
 		given(destinationTopic.getDestinationPartitions()).willReturn(1);
 		given(destinationTopicResolver.getCurrentTopic(testRetryTopic)).willReturn(destinationTopic);
 		long nextExecutionTimestamp = this.nowTimestamp + destinationTopic.getDestinationDelay();
-		given(destinationTopicResolver.resolveDestinationNextExecutionTimestamp(testTopic, 1, e, timestamp))
+		given(destinationTopicResolver
+				.resolveDestinationNextExecutionTimestamp(testTopic, 1, e, RetryTopicConstants.NOT_SET, timestamp))
 				.willReturn(nextExecutionTimestamp);
 		willReturn(this.kafkaOperations2).given(destinationTopic).getKafkaOperations();
 		given(kafkaOperations2.send(any(ProducerRecord.class))).willReturn(listenableFuture);

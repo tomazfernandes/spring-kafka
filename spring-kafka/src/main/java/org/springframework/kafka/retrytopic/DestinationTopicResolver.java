@@ -31,7 +31,8 @@ import java.util.Map;
 public interface DestinationTopicResolver {
 
 	DestinationTopic resolveNextDestination(String topic, Integer attempt, Exception e, long originalTimestamp);
-	long resolveDestinationNextExecutionTimestamp(String topic, Integer attempt, Exception e, long originalTimestamp);
+	long resolveDestinationNextExecutionTimestamp(String topic, Integer attempt, Exception e,
+												long failureTimestamp, long originalTimestamp);
 	DestinationTopic getCurrentTopic(String topic);
 	void addDestinations(Map<String, DestinationTopicResolver.DestinationsHolder> sourceDestinationMapToAdd);
 

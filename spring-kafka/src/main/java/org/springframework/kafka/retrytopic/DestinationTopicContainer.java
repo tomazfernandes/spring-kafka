@@ -18,6 +18,8 @@ package org.springframework.kafka.retrytopic;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
+import org.springframework.kafka.listener.TimestampedException;
 
 
 /**
@@ -39,6 +42,9 @@ import org.springframework.kafka.listener.ListenerExecutionFailedException;
  *
  */
 public class DestinationTopicContainer implements DestinationTopicResolver, ApplicationListener<ContextRefreshedEvent> {
+
+	private static final List<Class<? extends Throwable>> frameworkExceptions
+			= Arrays.asList(ListenerExecutionFailedException.class, TimestampedException.class);
 
 	private final Map<String, DestinationsHolder> destinationsHolderMap;
 
@@ -64,10 +70,13 @@ public class DestinationTopicContainer implements DestinationTopicResolver, Appl
 					: resolveDltOrNoOpsDestination(topic);
 	}
 
-	private Throwable maybeUnwrapException(Exception e) {
-		return ListenerExecutionFailedException.class.isAssignableFrom(e.getClass()) && e.getCause() != null
-				? e.getCause()
-				: e;
+	private Throwable maybeUnwrapException(Throwable e) {
+		return frameworkExceptions
+				.stream()
+				.filter(frameworkException -> frameworkException.isAssignableFrom(e.getClass()))
+				.map(frameworkException -> maybeUnwrapException(e.getCause()))
+				.findFirst()
+				.orElse(e);
 	}
 
 	private boolean isPastTimout(long originalTimestamp, DestinationsHolder destinationsHolder) {
@@ -90,9 +99,13 @@ public class DestinationTopicContainer implements DestinationTopicResolver, Appl
 
 	@Override
 	public long resolveDestinationNextExecutionTimestamp(String topic, Integer attempt, Exception e,
-														long originalTimestamp) {
-		return Instant.now(this.clock).plusMillis(resolveNextDestination(topic, attempt, e, originalTimestamp)
-				.getDestinationDelay()).toEpochMilli();
+														long failureTimestamp, long originalTimestamp) {
+		long baseTimestamp = failureTimestamp != RetryTopicConstants.NOT_SET
+				? failureTimestamp
+				: Instant.now(this.clock).toEpochMilli();
+
+		return baseTimestamp + resolveNextDestination(topic, attempt, e, originalTimestamp)
+				.getDestinationDelay();
 	}
 
 	@Override

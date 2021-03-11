@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -54,6 +55,7 @@ import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
@@ -360,6 +362,28 @@ public class RetryableTopicIntegrationTests {
 		@Bean(name = KafkaConsumerBackoffManager.INTERNAL_BACKOFF_CLOCK_BEAN_NAME)
 		public Clock clock() {
 			return Clock.systemUTC();
+		}
+
+		@Bean
+		public TaskExecutor taskExecutor() {
+			return new ThreadPoolTaskExecutor();
+		}
+
+		@Bean(destroyMethod = "destroy")
+		public TaskExecutorManager taskExecutorManager(ThreadPoolTaskExecutor taskExecutor) {
+			return new TaskExecutorManager(taskExecutor);
+		}
+	}
+
+	static class TaskExecutorManager {
+		private final ThreadPoolTaskExecutor taskExecutor;
+
+		TaskExecutorManager(ThreadPoolTaskExecutor taskExecutor) {
+			this.taskExecutor = taskExecutor;
+		}
+
+		void destroy() {
+			this.taskExecutor.shutdown();
 		}
 	}
 

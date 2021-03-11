@@ -18,15 +18,20 @@ package org.springframework.kafka.listener;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.logging.LogFactory;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.TopicPartition;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationListener;
+import org.springframework.core.log.LogAccessor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
+import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
+import org.springframework.lang.Nullable;
 
 /**
  *
@@ -47,61 +52,133 @@ import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
  */
 public class KafkaConsumerBackoffManager implements ApplicationListener<ListenerContainerPartitionIdleEvent> {
 
+	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(RetryTopicConfigurer.class));
 	/**
 	 * Internal Back Off Clock Bean Name.
 	 */
 	public static final String INTERNAL_BACKOFF_CLOCK_BEAN_NAME = "internalBackOffClock";
 
+	private final static int TIMING_CORRECTION_THRESHOLD = 100;
+
 	private final ListenerContainerRegistry registry;
 
-	private final Map<TopicPartition, Context> backOffTimes;
+	private final Map<TopicPartition, Context> backOffContexts;
 
 	private final Clock clock;
 
+	private final TaskExecutor taskExecutor;
+
 	public KafkaConsumerBackoffManager(ListenerContainerRegistry registry,
-									@Qualifier(INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
+									@Qualifier(INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock,
+									TaskExecutor taskExecutor) {
 
 		this.registry = registry;
 		this.clock = clock;
-		this.backOffTimes = new HashMap<>();
+		this.taskExecutor = taskExecutor;
+		this.backOffContexts = new HashMap<>();
 	}
 
 	/**
 	 * Backs off if the current time is before the dueTimestamp provided
 	 * in the {@link Context} object.
-	 * @param context the state that will be used for backing off.
+	 * @param context the back off context for this execution.
 	 */
 	public void maybeBackoff(Context context) {
-		long backoffTime = ChronoUnit.MILLIS.between(Instant.now(this.clock),
-				Instant.ofEpochMilli(context.dueTimestamp));
+		long backoffTime = context.dueTimestamp - getCurrentMillisFromClock();
 		if (backoffTime > 0) {
 			pauseConsumptionAndThrow(context, backoffTime);
 		}
 	}
 
-	private void pauseConsumptionAndThrow(Context context, Long timeToSleep) throws KafkaBackoffException {
+	private void pauseConsumptionAndThrow(Context context, Long backOffTime) throws KafkaBackoffException {
 		TopicPartition topicPartition = context.topicPartition;
 		getListenerContainerFromContext(context).pausePartition(topicPartition);
 		addBackoff(context, topicPartition);
 		throw new KafkaBackoffException(String.format("Partition %s from topic %s is not ready for consumption, " +
 				"backing off for approx. %s millis.", context.topicPartition.partition(),
-				context.topicPartition.topic(), timeToSleep),
+				context.topicPartition.topic(), backOffTime),
 				topicPartition, context.listenerId, context.dueTimestamp);
 	}
 
 	@Override
 	public void onApplicationEvent(ListenerContainerPartitionIdleEvent partitionIdleEvent) {
-		Context context = getBackoff(partitionIdleEvent.getTopicPartition());
-		if (context == null || isNotDue(context.dueTimestamp)) {
+		logger.debug(() -> String.format("partitionIdleEvent received in %s at %s. Partition: %s",
+				this.getClass().getSimpleName(), getCurrentMillisFromClock(), partitionIdleEvent.getTopicPartition()));
+
+		Context context = getBackOffContext(partitionIdleEvent.getTopicPartition());
+
+		if (context == null) {
 			return;
 		}
+		maybeResumeConsumption(context);
+	}
+
+	private long getCurrentMillisFromClock() {
+		return Instant.now(this.clock).toEpochMilli();
+	}
+
+	private void maybeResumeConsumption(Context context) {
+		long now = getCurrentMillisFromClock();
+		long timeUntilDue = context.dueTimestamp - now;
+		long pollTimeout = getListenerContainerFromContext(context)
+				.getContainerProperties()
+				.getPollTimeout();
+		boolean isDue = timeUntilDue <= pollTimeout;
+
+		if (maybeApplyTimingCorrection(context, pollTimeout, timeUntilDue) || isDue) {
+			resumePartition(context);
+		}
+		else {
+			logger.debug(() -> String.format("TopicPartition %s not due. DueTimestamp: %s Now: %s ",
+					context.topicPartition, context.dueTimestamp, now));
+		}
+	}
+
+	private void resumePartition(Context context) {
 		MessageListenerContainer container = getListenerContainerFromContext(context);
+		logger.debug(() -> "Resuming partition at " + getCurrentMillisFromClock());
 		container.resumePartition(context.topicPartition);
 		removeBackoff(context.topicPartition);
 	}
 
-	private boolean isNotDue(long dueTimestamp) {
-		return Instant.now(this.clock).isBefore(Instant.ofEpochMilli(dueTimestamp));
+	private boolean maybeApplyTimingCorrection(Context context, long pollTimeout, long timeUntilDue) {
+		// Correction can only be applied for ConsumerAwareMessageListener
+		// and AcknowledgingConsumerAwareMessageListener listeners.
+		if (context.consumer == null) {
+			return false;
+		}
+
+		// In this thread we only wait in increments of `pollTimeout`, so if necessary
+		// we can wake up the consumer early during a poll to make the remaining time
+		// a multiple of that. Note that this is only true if the consumer is handling
+		// a single partition.
+		boolean isInCorrectionWindow = timeUntilDue > pollTimeout && timeUntilDue <= pollTimeout * 2;
+
+		long correctionAmount = timeUntilDue % pollTimeout;
+		if (isInCorrectionWindow && correctionAmount > TIMING_CORRECTION_THRESHOLD) {
+			this.taskExecutor.execute(() -> doApplyTimingCorrection(context, correctionAmount));
+			return true;
+		}
+		return false;
+	}
+
+	private void doApplyTimingCorrection(Context context, long correctionAmount) {
+		try {
+			logger.debug(() -> String.format("Applying correction of %s millis at %s for TopicPartition %s",
+					correctionAmount, getCurrentMillisFromClock(), context.topicPartition));
+			Thread.sleep(correctionAmount);
+			logger.debug(() -> "Waking up consumer for partition topic: " + context.topicPartition);
+			context.consumer.wakeup();
+		}
+		catch (InterruptedException e) {
+			Thread.interrupted();
+			throw new IllegalStateException("Interrupted waking up consumer while applying correction " +
+					"for TopicPartition " + context.topicPartition, e);
+		}
+		catch (Throwable e) {
+			logger.error(e, () -> "Error waking up consumer while applying correction " +
+					"for TopicPartition " + context.topicPartition);
+		}
 	}
 
 	private MessageListenerContainer getListenerContainerFromContext(Context context) {
@@ -109,25 +186,25 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	}
 
 	protected void addBackoff(Context context, TopicPartition topicPartition) {
-		synchronized (this.backOffTimes) {
-			this.backOffTimes.put(topicPartition, context);
+		synchronized (this.backOffContexts) {
+			this.backOffContexts.put(topicPartition, context);
 		}
 	}
 
-	protected Context getBackoff(TopicPartition topicPartition) {
-		synchronized (this.backOffTimes) {
-			return this.backOffTimes.get(topicPartition);
+	protected Context getBackOffContext(TopicPartition topicPartition) {
+		synchronized (this.backOffContexts) {
+			return this.backOffContexts.get(topicPartition);
 		}
 	}
 
 	protected void removeBackoff(TopicPartition topicPartition) {
-		synchronized (this.backOffTimes) {
-			this.backOffTimes.remove(topicPartition);
+		synchronized (this.backOffContexts) {
+			this.backOffContexts.remove(topicPartition);
 		}
 	}
 
-	public Context createContext(long dueTimestamp, String listenerId, TopicPartition topicPartition) {
-		return new Context(dueTimestamp, listenerId, topicPartition);
+	public Context createContext(long dueTimestamp, String listenerId, TopicPartition topicPartition, Consumer<?, ?> consumer) {
+		return new Context(dueTimestamp, topicPartition, listenerId, consumer);
 	}
 
 	/**
@@ -140,22 +217,29 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		 * The time after which the message should be processed,
 		 * in milliseconds since epoch.
 		 */
-		final long dueTimestamp; // NOSONAR
+		private final long dueTimestamp; // NOSONAR
 
 		/**
 		 * The id for the listener that should be paused.
 		 */
-		final String listenerId; // NOSONAR
+		private final String listenerId; // NOSONAR
 
 		/**
 		 * The topic that contains the partition to be paused.
 		 */
-		final TopicPartition topicPartition; // NOSONAR
+		private final TopicPartition topicPartition; // NOSONAR
 
-		Context(long dueTimestamp, String listenerId, TopicPartition topicPartition) {
+		/**
+		 * The consumer of the message, if present.
+		 */
+		private final Consumer<?, ?> consumer; // NOSONAR
+
+		Context(long dueTimestamp, TopicPartition topicPartition, String listenerId,
+						@Nullable Consumer<?, ?> consumer) {
 			this.dueTimestamp = dueTimestamp;
 			this.listenerId = listenerId;
 			this.topicPartition = topicPartition;
+			this.consumer = consumer;
 		}
 	}
 }
