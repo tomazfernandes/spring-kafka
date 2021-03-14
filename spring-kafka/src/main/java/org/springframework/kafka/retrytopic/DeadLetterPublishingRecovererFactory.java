@@ -17,6 +17,7 @@
 package org.springframework.kafka.retrytopic;
 
 import java.math.BigInteger;
+import java.time.Instant;
 import java.util.function.Consumer;
 
 import org.apache.commons.logging.LogFactory;
@@ -92,7 +93,7 @@ public class DeadLetterPublishingRecovererFactory {
 
 	private KafkaOperations<?, ?> resolveTemplate(ProducerRecord<?, ?> outRecord) {
 		return this.destinationTopicResolver
-						.getCurrentTopic(outRecord.topic())
+						.getDestinationTopicByName(outRecord.topic())
 						.getKafkaOperations();
 	}
 
@@ -105,7 +106,7 @@ public class DeadLetterPublishingRecovererFactory {
 			throw (NestedRuntimeException) e; // Necessary to not commit the offset and seek to current again
 		}
 
-		DestinationTopic nextDestination = this.destinationTopicResolver.resolveNextDestination(
+		DestinationTopic nextDestination = this.destinationTopicResolver.resolveDestinationTopic(
 				cr.topic(), getAttempts(cr), e, getOriginalTimestampHeaderLong(cr));
 
 		logger.debug(() -> "Resolved topic: " + (nextDestination.isNoOpsTopic()
@@ -140,9 +141,8 @@ public class DeadLetterPublishingRecovererFactory {
 	private long getNextExecutionTimestamp(ConsumerRecord<?, ?> consumerRecord, Exception e, int attempts, byte[] originalTimestampHeader) {
 		long originalTimestamp = new BigInteger(originalTimestampHeader).longValue();
 		long failureTimestamp = getFailureTimestamp(e);
-		long nextExecutionTimestamp = this.destinationTopicResolver
-				.resolveDestinationNextExecutionTimestamp(consumerRecord.topic(), attempts, e,
-						failureTimestamp, originalTimestamp);
+		long nextExecutionTimestamp =  failureTimestamp + this.destinationTopicResolver
+				.getDestinationTopicByName(consumerRecord.topic()).getDestinationDelay();
 		logger.debug(() -> String.format("FailureTimestamp: %s, Original timestamp: %s, nextExecutionTimestamp: %s",
 				failureTimestamp, originalTimestamp, nextExecutionTimestamp));
 		return nextExecutionTimestamp;
@@ -151,7 +151,7 @@ public class DeadLetterPublishingRecovererFactory {
 	private long getFailureTimestamp(Exception e) {
 		return e instanceof NestedRuntimeException && ((NestedRuntimeException) e).contains(TimestampedException.class)
 					? getTimestampedException(e).getTimestamp()
-					: RetryTopicConstants.NOT_SET;
+					: Instant.now().toEpochMilli();
 	}
 
 	private TimestampedException getTimestampedException(Throwable e) {

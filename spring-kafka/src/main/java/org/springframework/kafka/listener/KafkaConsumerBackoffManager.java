@@ -32,6 +32,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.lang.Nullable;
+import org.springframework.retry.backoff.Sleeper;
 
 /**
  *
@@ -58,7 +59,9 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	 */
 	public static final String INTERNAL_BACKOFF_CLOCK_BEAN_NAME = "internalBackOffClock";
 
-	private final static int TIMING_CORRECTION_THRESHOLD = 100;
+	private static final int TIMING_CORRECTION_THRESHOLD = 100;
+
+	private static final int POLL_TIMEOUTS_FOR_CORRECTION_WINDOW = 2;
 
 	private final ListenerContainerRegistry registry;
 
@@ -68,13 +71,17 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 
 	private final TaskExecutor taskExecutor;
 
+	private final Sleeper sleeper;
+
 	public KafkaConsumerBackoffManager(ListenerContainerRegistry registry,
-									@Qualifier(INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock,
-									TaskExecutor taskExecutor) {
+									   @Qualifier(INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock,
+									   TaskExecutor taskExecutor,
+									   Sleeper sleeper) {
 
 		this.registry = registry;
 		this.clock = clock;
 		this.taskExecutor = taskExecutor;
+		this.sleeper = sleeper;
 		this.backOffContexts = new HashMap<>();
 	}
 
@@ -105,12 +112,12 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		logger.debug(() -> String.format("partitionIdleEvent received in %s at %s. Partition: %s",
 				this.getClass().getSimpleName(), getCurrentMillisFromClock(), partitionIdleEvent.getTopicPartition()));
 
-		Context context = getBackOffContext(partitionIdleEvent.getTopicPartition());
+		Context backOffContext = getBackOffContext(partitionIdleEvent.getTopicPartition());
 
-		if (context == null) {
+		if (backOffContext == null) {
 			return;
 		}
-		maybeResumeConsumption(context);
+		maybeResumeConsumption(backOffContext);
 	}
 
 	private long getCurrentMillisFromClock() {
@@ -142,17 +149,14 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	}
 
 	private boolean maybeApplyTimingCorrection(Context context, long pollTimeout, long timeUntilDue) {
-		// Correction can only be applied for ConsumerAwareMessageListener
-		// and AcknowledgingConsumerAwareMessageListener listeners.
+		// Correction can only be applied to ConsumerAwareMessageListener
+		// listener instances.
 		if (context.consumer == null) {
 			return false;
 		}
 
-		// In this thread we only wait in increments of `pollTimeout`, so if necessary
-		// we can wake up the consumer early during a poll to make the remaining time
-		// a multiple of that. Note that this is only true if the consumer is handling
-		// a single partition.
-		boolean isInCorrectionWindow = timeUntilDue > pollTimeout && timeUntilDue <= pollTimeout * 2;
+		boolean isInCorrectionWindow = timeUntilDue > pollTimeout && timeUntilDue <=
+				pollTimeout * POLL_TIMEOUTS_FOR_CORRECTION_WINDOW;
 
 		long correctionAmount = timeUntilDue % pollTimeout;
 		if (isInCorrectionWindow && correctionAmount > TIMING_CORRECTION_THRESHOLD) {
@@ -166,7 +170,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 		try {
 			logger.debug(() -> String.format("Applying correction of %s millis at %s for TopicPartition %s",
 					correctionAmount, getCurrentMillisFromClock(), context.topicPartition));
-			Thread.sleep(correctionAmount);
+			this.sleeper.sleep(correctionAmount);
 			logger.debug(() -> "Waking up consumer for partition topic: " + context.topicPartition);
 			context.consumer.wakeup();
 		}

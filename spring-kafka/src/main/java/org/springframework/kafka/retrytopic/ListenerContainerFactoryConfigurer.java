@@ -31,6 +31,7 @@ import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.listener.AcknowledgingConsumerAwareMessageListener;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.ErrorHandler;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
@@ -158,9 +159,36 @@ public class ListenerContainerFactoryConfigurer {
 		this.containerCustomizer.accept(container);
 	}
 
-	private void configurePollTimeoutAndIdlePartitionInterval(ConcurrentMessageListenerContainer<?, ?> container, List<Long> backOffValues) {
+	private void configurePollTimeoutAndIdlePartitionInterval(ConcurrentMessageListenerContainer<?, ?> container,
+															  List<Long> backOffValues) {
 		if (backOffValues.isEmpty()) {
 			return;
+		}
+
+		ContainerProperties containerProperties = container.getContainerProperties();
+
+		long pollTimeoutValue = getPollTimeoutValue(containerProperties, backOffValues);
+		long idlePartitionEventInterval = getIdlePartitionInterval(containerProperties, pollTimeoutValue);
+
+		logger.debug(() -> "pollTimeout and idlePartitionEventInterval for back off values "
+				+ backOffValues + " will be set to " + pollTimeoutValue
+				+ " and " + idlePartitionEventInterval);
+
+		containerProperties
+				.setIdlePartitionEventInterval(idlePartitionEventInterval);
+		containerProperties.setPollTimeout(pollTimeoutValue);
+	}
+
+	private long getIdlePartitionInterval(ContainerProperties containerProperties, long pollTimeoutValue) {
+		Long idlePartitionEventInterval = containerProperties.getIdlePartitionEventInterval();
+		return idlePartitionEventInterval != null && idlePartitionEventInterval > 0
+				? idlePartitionEventInterval
+				: pollTimeoutValue;
+	}
+
+	private long getPollTimeoutValue(ContainerProperties containerProperties, List<Long> backOffValues) {
+		if (containerProperties.getPollTimeout() != ContainerProperties.DEFAULT_POLL_TIMEOUT) {
+			return containerProperties.getPollTimeout();
 		}
 
 		Long lowestBackOff = backOffValues
@@ -169,15 +197,7 @@ public class ListenerContainerFactoryConfigurer {
 				.orElseThrow(() -> new IllegalArgumentException("No back off values found!"));
 
 		long pollTimeoutValue = applyLimits(lowestBackOff / POLL_TIMEOUT_DIVISOR);
-		long idlePartitionEventInterval = pollTimeoutValue;
-
-		logger.debug(() -> "pollTimeout and idlePartitionEventInterval for back off values "
-				+ backOffValues + " will be set to " + pollTimeoutValue
-				+ " and " + idlePartitionEventInterval);
-
-		container.getContainerProperties()
-				.setIdlePartitionEventInterval(idlePartitionEventInterval);
-		container.getContainerProperties().setPollTimeout(pollTimeoutValue);
+		return pollTimeoutValue;
 	}
 
 	private long applyLimits(long pollTimeoutValue) {
