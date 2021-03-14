@@ -46,7 +46,7 @@ import org.springframework.kafka.support.KafkaHeaders;
  */
 public class DeadLetterPublishingRecovererFactory {
 
-	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(RetryTopicConfigurer.class));
+	private static final LogAccessor logger = new LogAccessor(LogFactory.getLog(DeadLetterPublishingRecovererFactory.class));
 
 	private final DestinationTopicResolver destinationTopicResolver;
 
