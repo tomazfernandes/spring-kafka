@@ -74,9 +74,9 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	private final Sleeper sleeper;
 
 	public KafkaConsumerBackoffManager(ListenerContainerRegistry registry,
-									   @Qualifier(INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock,
-									   TaskExecutor taskExecutor,
-									   Sleeper sleeper) {
+									@Qualifier(INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock,
+									TaskExecutor taskExecutor,
+									Sleeper sleeper) {
 
 		this.registry = registry;
 		this.clock = clock;

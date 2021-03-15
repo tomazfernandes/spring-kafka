@@ -16,8 +16,6 @@
 
 package org.springframework.kafka.retrytopic;
 
-import java.util.Map;
-
 /**
  *
  * Provides methods for resolving the destination to which a message that failed

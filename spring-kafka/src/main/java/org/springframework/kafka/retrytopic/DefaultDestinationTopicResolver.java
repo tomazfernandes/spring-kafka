@@ -34,10 +34,9 @@ import org.springframework.kafka.listener.TimestampedException;
 
 /**
  *
- * Contains the destination topics and correlates them with their source via the
- * Map&lt;String, {@link org.springframework.kafka.retrytopic.TopicDestinationsHolder}&gt; map.
- *
- * Implements the {@link DestinationTopicResolver} interface.
+ * Default implementation of the DestinationTopicResolver interface.
+ * The container is closed when a {@link ContextRefreshedEvent} is received
+ * and no more destinations can be added after that.
  *
  * @author Tomaz Fernandes
  * @since 2.7
@@ -54,9 +53,9 @@ public class DefaultDestinationTopicResolver implements DestinationTopicResolver
 
 	private final Map<String, DestinationTopic> destinationsTopicMap;
 
-	private boolean containerClosed;
-
 	private final Clock clock;
+
+	private boolean containerClosed;
 
 	public DefaultDestinationTopicResolver(Clock clock) {
 		this.clock = clock;
@@ -164,8 +163,8 @@ public class DefaultDestinationTopicResolver implements DestinationTopicResolver
 	private DestinationTopic getNextDestinationTopic(List<DestinationTopic> destinationList, int index) {
 		return index != destinationList.size() - 1
 				? destinationList.get(index + 1)
-				: new DestinationTopic(destinationList.get(index).getDestinationName() + NO_OPS_SUFFIX,
-				destinationList.get(index), NO_OPS_SUFFIX, DestinationTopic.Type.NO_OPS);
+				: new DestinationTopic(destinationList.get(index).getDestinationName() + this.NO_OPS_SUFFIX,
+				destinationList.get(index), this.NO_OPS_SUFFIX, DestinationTopic.Type.NO_OPS);
 	}
 
 	@Override

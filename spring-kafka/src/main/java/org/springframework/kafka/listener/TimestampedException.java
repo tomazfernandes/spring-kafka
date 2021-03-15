@@ -30,6 +30,8 @@ import org.springframework.core.NestedRuntimeException;
  */
 public class TimestampedException extends NestedRuntimeException {
 
+	private static final long serialVersionUID = -2544217643924234282L;
+
 	private final long timestamp;
 
 	public TimestampedException(Exception ex, Clock clock) {

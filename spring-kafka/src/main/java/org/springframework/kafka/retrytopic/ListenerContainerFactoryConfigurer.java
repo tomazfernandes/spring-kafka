@@ -160,7 +160,7 @@ public class ListenerContainerFactoryConfigurer {
 	}
 
 	private void configurePollTimeoutAndIdlePartitionInterval(ConcurrentMessageListenerContainer<?, ?> container,
-															  List<Long> backOffValues) {
+															List<Long> backOffValues) {
 		if (backOffValues.isEmpty()) {
 			return;
 		}

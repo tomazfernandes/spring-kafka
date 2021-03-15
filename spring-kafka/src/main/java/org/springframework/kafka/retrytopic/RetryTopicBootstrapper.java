@@ -25,7 +25,6 @@ import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
-import org.springframework.retry.backoff.Sleeper;
 import org.springframework.retry.backoff.ThreadWaitSleeper;
 
 /**
