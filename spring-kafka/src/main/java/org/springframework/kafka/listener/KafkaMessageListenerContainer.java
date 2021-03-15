@@ -1495,7 +1495,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			if (partitionsToResume.size() > 0) {
 				this.consumer.resume(partitionsToResume);
 				this.pausedPartitions.removeAll(partitionsToResume);
-				this.logger.info(() -> "Resumed consumption from " + partitionsToResume);
+				this.logger.debug(() -> "Resumed consumption from " + partitionsToResume);
 				partitionsToResume.forEach(KafkaMessageListenerContainer.this::publishConsumerPartitionResumedEvent);
 			}
 		}
