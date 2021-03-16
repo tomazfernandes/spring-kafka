@@ -48,7 +48,7 @@ import org.springframework.retry.backoff.Sleeper;
  * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
-class KafkaConsumerBackoffManagerTest {
+class KafkaConsumerBackoffManagerTests {
 
 	@Mock
 	private KafkaListenerEndpointRegistry registry;

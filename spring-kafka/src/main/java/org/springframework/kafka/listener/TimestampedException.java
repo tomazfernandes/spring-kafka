@@ -19,16 +19,16 @@ package org.springframework.kafka.listener;
 import java.time.Clock;
 import java.time.Instant;
 
-import org.springframework.core.NestedRuntimeException;
+import org.springframework.kafka.KafkaException;
 
 /**
- * A {@link NestedRuntimeException} that records the timestamp
+ * A {@link KafkaException} that records the timestamp
  * of when it was thrown.
  *
  * @author Tomaz Fernandes
  * @since 2.7
  */
-public class TimestampedException extends NestedRuntimeException {
+public class TimestampedException extends KafkaException {
 
 	private static final long serialVersionUID = -2544217643924234282L;
 

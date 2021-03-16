@@ -55,7 +55,7 @@ import org.springframework.kafka.support.Acknowledgment;
  * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
-class KafkaBackoffAwareMessageListenerAdapterTest {
+class KafkaBackoffAwareMessageListenerAdapterTests {
 
 	@Mock
 	private AcknowledgingConsumerAwareMessageListener<Object, Object> delegate;
