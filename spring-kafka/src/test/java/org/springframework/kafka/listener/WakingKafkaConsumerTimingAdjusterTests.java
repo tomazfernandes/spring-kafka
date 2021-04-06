@@ -30,7 +30,11 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.retry.backoff.Sleeper;
 
-class WakingKafkaConsumerTimingAdjusterTest {
+/**
+ * @author Tomaz Fernandes
+ * @since 2.7
+ */
+class WakingKafkaConsumerTimingAdjusterTests {
 
 	@Test
 	void testAppliesCorrectionIfInCorrectionWindow() throws InterruptedException {

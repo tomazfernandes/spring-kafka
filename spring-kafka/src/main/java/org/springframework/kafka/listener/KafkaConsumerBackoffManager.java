@@ -56,7 +56,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 
 	private final Clock clock;
 
-	private final KafkaConsumerTimingAdjuster wakingKafkaConsumerTimingAdjuster;
+	private final KafkaConsumerTimingAdjuster kafkaConsumerTimingAdjuster;
 
 	/**
 	 * Constructs an instance with the provided {@link ListenerContainerRegistry} and
@@ -76,7 +76,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 									KafkaConsumerTimingAdjuster kafkaConsumerTimingAdjuster) {
 
 		this.listenerContainerRegistry = listenerContainerRegistry;
-		this.wakingKafkaConsumerTimingAdjuster = kafkaConsumerTimingAdjuster;
+		this.kafkaConsumerTimingAdjuster = kafkaConsumerTimingAdjuster;
 		this.clock = Clock.systemUTC();
 		this.backOffContexts = new HashMap<>();
 	}
@@ -93,7 +93,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	public KafkaConsumerBackoffManager(ListenerContainerRegistry listenerContainerRegistry) {
 
 		this.listenerContainerRegistry = listenerContainerRegistry;
-		this.wakingKafkaConsumerTimingAdjuster = null;
+		this.kafkaConsumerTimingAdjuster = null;
 		this.clock = Clock.systemUTC();
 		this.backOffContexts = new HashMap<>();
 	}
@@ -112,7 +112,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 
 		this.listenerContainerRegistry = listenerContainerRegistry;
 		this.clock = clock;
-		this.wakingKafkaConsumerTimingAdjuster = kafkaConsumerTimingAdjuster;
+		this.kafkaConsumerTimingAdjuster = kafkaConsumerTimingAdjuster;
 		this.backOffContexts = new HashMap<>();
 	}
 
@@ -127,7 +127,7 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 
 		this.listenerContainerRegistry = listenerContainerRegistry;
 		this.clock = clock;
-		this.wakingKafkaConsumerTimingAdjuster = null;
+		this.kafkaConsumerTimingAdjuster = null;
 		this.backOffContexts = new HashMap<>();
 	}
 
@@ -189,12 +189,12 @@ public class KafkaConsumerBackoffManager implements ApplicationListener<Listener
 	}
 
 	private long applyTimingAdjustment(Context context, long timeUntilDue, long pollTimeout) {
-		if (this.wakingKafkaConsumerTimingAdjuster == null || context.consumerForTimingAdjustment == null) {
+		if (this.kafkaConsumerTimingAdjuster == null || context.consumerForTimingAdjustment == null) {
 			LOGGER.debug(() -> String.format(
 					"Skipping timing adjustment for TopicPartition %s.", context.topicPartition));
 			return 0L;
 		}
-		return this.wakingKafkaConsumerTimingAdjuster.adjustTiming(
+		return this.kafkaConsumerTimingAdjuster.adjustTiming(
 						context.consumerForTimingAdjustment, context.topicPartition, pollTimeout, timeUntilDue);
 	}
 
