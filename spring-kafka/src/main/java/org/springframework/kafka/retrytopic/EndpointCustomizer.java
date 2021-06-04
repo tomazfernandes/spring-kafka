@@ -31,7 +31,7 @@ import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
  *
  */
 @FunctionalInterface
-interface EndpointCustomizer {
+public interface EndpointCustomizer {
 
 	/**
 	 * Customize the endpoint and return the topic names generated for this endpoint.
