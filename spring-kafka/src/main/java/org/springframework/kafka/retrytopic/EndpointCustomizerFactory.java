@@ -57,7 +57,7 @@ public class EndpointCustomizerFactory {
 		this.retryTopicNamesProviderFactory = retryTopicNamesProviderFactory;
 	}
 
-	public EndpointCustomizer createEndpointCustomizer() {
+	final public EndpointCustomizer createEndpointCustomizer() {
 		return addSuffixesAndMethod(this.destinationProperties, this.beanMethod.resolveBean(this.beanFactory),
 				this.beanMethod.getMethod());
 	}
@@ -100,7 +100,9 @@ public class EndpointCustomizerFactory {
 		}
 
 		if (topics.isEmpty()) {
-			throw new IllegalStateException("No topics where provided for RetryTopicConfiguration.");
+			throw new IllegalStateException(
+					String.format("No topics were provided for RetryTopicConfiguration for method %s in class %s.",
+							endpoint.getMethod().getName(), endpoint.getBean().getClass().getSimpleName()));
 		}
 		return topics;
 	}
