@@ -82,6 +82,12 @@ public class RetryTopicConfigurationBuilder {
 		return this;
 	}
 
+	/* ---------------- DLT Behavior -------------- */
+	public RetryTopicConfigurationBuilder dltHandlerMethod(String clazz, String methodName) {
+		this.dltHandlerMethod = RetryTopicConfigurer.createHandlerMethodWith(clazz, methodName);
+		return this;
+	}
+
 	public RetryTopicConfigurationBuilder dltHandlerMethod(
 			EndpointHandlerMethod endpointHandlerMethod) {
 

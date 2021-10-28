@@ -316,7 +316,7 @@ public class RetryTopicConfigurer {
 		EndpointHandlerMethod endpointBeanMethod =
 				getEndpointHandlerMethod(mainEndpoint, configuration, destinationTopicProperties);
 
-		createEndpointCustomizer(endpointBeanMethod, destinationTopicProperties)
+		createEndpointCustomizer(endpointBeanMethod, destinationTopicProperties, mainEndpoint.getBean())
 						.customizeEndpointAndCollectTopics(endpoint)
 						.forEach(topicNamesHolder ->
 								this.destinationTopicProcessor
@@ -331,9 +331,9 @@ public class RetryTopicConfigurer {
 	private EndpointHandlerMethod getEndpointHandlerMethod(MethodKafkaListenerEndpoint<?, ?> mainEndpoint,
 														RetryTopicConfiguration configuration,
 														DestinationTopic.Properties props) {
-		EndpointHandlerMethod dltHandlerMethod = configuration.getDltHandlerMethod();
-		EndpointHandlerMethod retryBeanMethod = new EndpointHandlerMethod(mainEndpoint.getBean(), mainEndpoint.getMethod());
-		return props.isDltTopic() ? getDltEndpointHandlerMethodOrDefault(dltHandlerMethod) : retryBeanMethod;
+		return props.isDltTopic()
+				? getDltEndpointHandlerMethodOrDefault(configuration.getDltHandlerMethod(), mainEndpoint)
+				: new EndpointHandlerMethod(mainEndpoint.getBean(), mainEndpoint.getMethod());
 	}
 
 	private Consumer<Collection<String>> getTopicCreationFunction(RetryTopicConfiguration config) {
@@ -352,17 +352,24 @@ public class RetryTopicConfigurer {
 	}
 
 	private EndpointCustomizer createEndpointCustomizer(
-			EndpointHandlerMethod endpointBeanMethod, DestinationTopic.Properties destinationTopicProperties) {
+			EndpointHandlerMethod endpointBeanMethod, DestinationTopic.Properties destinationTopicProperties, Object bean) {
 
 		return new EndpointCustomizerFactory(destinationTopicProperties,
 				endpointBeanMethod,
 				this.beanFactory,
-				this.retryTopicNamesProviderFactory)
+				this.retryTopicNamesProviderFactory, bean)
 				.createEndpointCustomizer();
 	}
 
-	private EndpointHandlerMethod getDltEndpointHandlerMethodOrDefault(EndpointHandlerMethod dltEndpointHandlerMethod) {
-		return dltEndpointHandlerMethod != null ? dltEndpointHandlerMethod : DEFAULT_DLT_HANDLER;
+	private EndpointHandlerMethod getDltEndpointHandlerMethodOrDefault(EndpointHandlerMethod dltEndpointHandlerMethod, MethodKafkaListenerEndpoint<?, ?> mainEndpoint) {
+		return dltEndpointHandlerMethod != null
+				? resolveDltMethod(dltEndpointHandlerMethod, mainEndpoint)
+				: DEFAULT_DLT_HANDLER;
+	}
+
+	private EndpointHandlerMethod resolveDltMethod(EndpointHandlerMethod dltEndpointHandlerMethod, MethodKafkaListenerEndpoint<?, ?> mainEndpoint) {
+		dltEndpointHandlerMethod.resolveBean(this.beanFactory, mainEndpoint.getBean());
+		return dltEndpointHandlerMethod;
 	}
 
 	private ConcurrentKafkaListenerContainerFactory<?, ?> resolveAndConfigureFactoryForMainEndpoint(
@@ -396,6 +403,10 @@ public class RetryTopicConfigurer {
 		return new EndpointHandlerMethod(beanClass, methodName);
 	}
 
+	public static EndpointHandlerMethod createHandlerMethodWith(String beanClass, String methodName) {
+		return new EndpointHandlerMethod(beanClass, methodName);
+	}
+
 	public static EndpointHandlerMethod createHandlerMethodWith(Object bean, Method method) {
 		return new EndpointHandlerMethod(bean, method);
 	}
@@ -423,18 +434,20 @@ public class RetryTopicConfigurer {
 		private final BeanFactory beanFactory;
 
 		private final RetryTopicNamesProviderFactory retryTopicNamesProviderFactory;
+		private Object beanCandidateFromKLME;
 
 		EndpointCustomizerFactory(DestinationTopic.Properties destinationProperties, EndpointHandlerMethod beanMethod,
-			BeanFactory beanFactory, RetryTopicNamesProviderFactory retryTopicNamesProviderFactory) {
+								  BeanFactory beanFactory, RetryTopicNamesProviderFactory retryTopicNamesProviderFactory, Object beanCandidateFromKLME) {
 
 			this.destinationProperties = destinationProperties;
 			this.beanMethod = beanMethod;
 			this.beanFactory = beanFactory;
 			this.retryTopicNamesProviderFactory = retryTopicNamesProviderFactory;
+			this.beanCandidateFromKLME = beanCandidateFromKLME;
 		}
 
 		public EndpointCustomizer createEndpointCustomizer() {
-			return addSuffixesAndMethod(this.destinationProperties, this.beanMethod.resolveBean(this.beanFactory),
+			return addSuffixesAndMethod(this.destinationProperties, this.beanMethod.resolveBean(this.beanFactory, this.beanCandidateFromKLME),
 					this.beanMethod.getMethod());
 		}
 
