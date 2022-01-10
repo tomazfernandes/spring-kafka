@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021 the original author or authors.
+ * Copyright 2016-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2496,7 +2496,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 				}
 				catch (KafkaException ke) {
 					if (ke.contains(KafkaBackoffException.class)) {
-						this.logger.warn(ke.getMessage());
+						this.logger.debug(ke.getMessage());
 					}
 					else {
 						ke.selfLog(ERROR_HANDLER_THREW_AN_EXCEPTION, this.logger);
