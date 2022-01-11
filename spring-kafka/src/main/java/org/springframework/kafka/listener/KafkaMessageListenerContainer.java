@@ -2495,12 +2495,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 					commitOffsetsIfNeeded(record);
 				}
 				catch (KafkaException ke) {
-					if (ke.contains(KafkaBackoffException.class)) {
-						this.logger.debug(ke.getMessage());
-					}
-					else {
-						ke.selfLog(ERROR_HANDLER_THREW_AN_EXCEPTION, this.logger);
-					}
+					ke.selfLog(ERROR_HANDLER_THREW_AN_EXCEPTION, this.logger);
 					return ke;
 				}
 				catch (RuntimeException ee) {

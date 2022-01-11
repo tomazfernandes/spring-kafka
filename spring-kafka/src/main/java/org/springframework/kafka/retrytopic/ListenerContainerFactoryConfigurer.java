@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.listener.KafkaBackOffAwareErrorHandler;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
 import org.springframework.util.Assert;
@@ -141,7 +142,7 @@ public class ListenerContainerFactoryConfigurer {
 	}
 
 	private CommonErrorHandler createErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
-		DefaultErrorHandler errorHandler = new DefaultErrorHandler(deadLetterPublishingRecoverer,
+		DefaultErrorHandler errorHandler = new KafkaBackOffAwareErrorHandler(deadLetterPublishingRecoverer,
 				new FixedBackOff(0, 0));
 		errorHandler.setCommitRecovered(true);
 		this.errorHandlerCustomizer.accept(errorHandler);
