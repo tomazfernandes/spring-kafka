@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -298,7 +298,7 @@ public class RetryTopicConfigurer {
 											RetryTopicConfiguration configuration, DestinationTopicProcessor.Context context,
 											DestinationTopic.Properties destinationTopicProperties) {
 
-		ConcurrentKafkaListenerContainerFactory<?, ?> resolvedFactory =
+		KafkaListenerContainerFactory<?> resolvedFactory =
 				destinationTopicProperties.isMainEndpoint()
 						? resolveAndConfigureFactoryForMainEndpoint(factory, defaultFactoryBeanName, configuration)
 						: resolveAndConfigureFactoryForRetryEndpoint(factory, defaultFactoryBeanName, configuration);
@@ -361,7 +361,7 @@ public class RetryTopicConfigurer {
 		return dltEndpointHandlerMethod != null ? dltEndpointHandlerMethod : DEFAULT_DLT_HANDLER;
 	}
 
-	private ConcurrentKafkaListenerContainerFactory<?, ?> resolveAndConfigureFactoryForMainEndpoint(
+	private KafkaListenerContainerFactory<?> resolveAndConfigureFactoryForMainEndpoint(
 			KafkaListenerContainerFactory<?> providedFactory,
 			String defaultFactoryBeanName, RetryTopicConfiguration configuration) {
 		ConcurrentKafkaListenerContainerFactory<?, ?> resolvedFactory = this.containerFactoryResolver
@@ -371,7 +371,7 @@ public class RetryTopicConfigurer {
 				.configureWithoutBackOffValues(resolvedFactory, configuration.forContainerFactoryConfigurer());
 	}
 
-	private ConcurrentKafkaListenerContainerFactory<?, ?> resolveAndConfigureFactoryForRetryEndpoint(
+	private KafkaListenerContainerFactory<?> resolveAndConfigureFactoryForRetryEndpoint(
 			KafkaListenerContainerFactory<?> providedFactory,
 			String defaultFactoryBeanName,
 			RetryTopicConfiguration configuration) {

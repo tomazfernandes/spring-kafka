@@ -23,20 +23,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 import org.apache.commons.logging.LogFactory;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.listener.AcknowledgingConsumerAwareMessageListener;
-import org.springframework.kafka.listener.CommonErrorHandler;
-import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
-import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
+import org.springframework.kafka.config.KafkaListenerEndpoint;
+import org.springframework.kafka.listener.*;
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
+import org.springframework.kafka.support.TopicPartitionOffset;
 import org.springframework.util.Assert;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -96,16 +93,16 @@ public class ListenerContainerFactoryConfigurer {
 
 	public ConcurrentKafkaListenerContainerFactory<?, ?> configure(
 			ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, Configuration configuration) {
-		return isCached(containerFactory)
-				? containerFactory
-				: addToCache(doConfigure(containerFactory, configuration.backOffValues));
+		return wrap(containerFactory, configuration.backOffValues);
 	}
 
 	public ConcurrentKafkaListenerContainerFactory<?, ?> configureWithoutBackOffValues(
 			ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, Configuration configuration) {
-		return isCached(containerFactory)
-				? containerFactory
-				: doConfigure(containerFactory, Collections.emptyList());
+		return wrap(containerFactory, Collections.emptyList());
+	}
+
+	private <K, V> ConcurrentKafkaListenerContainerFactory<?, ?> wrap(ConcurrentKafkaListenerContainerFactory<K, V> containerFactory, List<Long> backOffValues) {
+		return new ContainerFactoryWrapper<>(containerFactory, backOffValues);
 	}
 
 	private ConcurrentKafkaListenerContainerFactory<?, ?> doConfigure(
@@ -221,6 +218,49 @@ public class ListenerContainerFactoryConfigurer {
 
 		Configuration(List<Long> backOffValues) {
 			this.backOffValues = backOffValues;
+		}
+	}
+
+	private class ContainerFactoryWrapper<K, V> extends ConcurrentKafkaListenerContainerFactory<K, V> {
+
+		private final ConcurrentKafkaListenerContainerFactory<K, V> delegate;
+		private final List<Long> backOffValues;
+
+		public ContainerFactoryWrapper(ConcurrentKafkaListenerContainerFactory<K, V> delegate, List<Long> backOffValues) {
+			super();
+			this.delegate = delegate;
+			this.backOffValues = backOffValues;
+		}
+
+		@Override
+		public ContainerProperties getContainerProperties() {
+			return delegate.getContainerProperties();
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<K, V> createListenerContainer(KafkaListenerEndpoint endpoint) {
+			return customize(delegate.createListenerContainer(endpoint));
+		}
+
+		private ConcurrentMessageListenerContainer<K, V> customize(ConcurrentMessageListenerContainer<K, V> listenerContainer) {
+			setupBackoffAwareMessageListenerAdapter(listenerContainer, backOffValues);
+			listenerContainer.setCommonErrorHandler(createErrorHandler(deadLetterPublishingRecovererFactory.create()));
+			return listenerContainer;
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<K, V> createContainer(TopicPartitionOffset... topicPartitions) {
+			return customize(delegate.createContainer(topicPartitions));
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<K, V> createContainer(String... topics) {
+			return customize(delegate.createContainer(topics));
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<K, V> createContainer(Pattern topicPattern) {
+			return customize(delegate.createContainer(topicPattern));
 		}
 	}
 }
