@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2021 the original author or authors.
+ * Copyright 2014-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -355,6 +355,25 @@ public abstract class AbstractKafkaListenerContainerFactory<C extends AbstractMe
 		this.containerCustomizer = containerCustomizer;
 	}
 
+	/**
+	 * Add a customizer used to further configure a container after it has been created,
+	 * while maintaining and calling any existing ones.
+	 * @param containerCustomizer the customizer.
+	 * @since 2.8.3
+	 */
+	public void addContainerCustomizer(ContainerCustomizer<K, V, C> containerCustomizer) {
+		if (this.containerCustomizer != null) {
+			ContainerCustomizer<K, V, C> existingCustomizer = this.containerCustomizer;
+			this.containerCustomizer = container -> {
+				existingCustomizer.configure(container);
+				containerCustomizer.configure(container);
+			};
+		}
+		else {
+			this.containerCustomizer = containerCustomizer;
+		}
+	}
+
 	@Override
 	public void afterPropertiesSet() {
 		if (this.commonErrorHandler == null && this.errorHandler != null) {
@@ -449,6 +468,7 @@ public abstract class AbstractKafkaListenerContainerFactory<C extends AbstractMe
 				.acceptIfNotNull(this.applicationEventPublisher, instance::setApplicationEventPublisher)
 				.acceptIfHasText(endpoint.getGroupId(), instance.getContainerProperties()::setGroupId)
 				.acceptIfHasText(endpoint.getClientIdPrefix(), instance.getContainerProperties()::setClientId)
+				.acceptIfCondition(endpoint.isRetryable(), endpoint.isRetryable(), instance::setRetryable)
 				.acceptIfNotNull(endpoint.getConsumerProperties(),
 						instance.getContainerProperties()::setKafkaConsumerProperties);
 	}

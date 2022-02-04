@@ -115,6 +115,8 @@ public abstract class AbstractMessageListenerContainer<K, V>
 
 	private volatile boolean stoppedNormally = true;
 
+	private boolean retryable;
+
 	/**
 	 * Construct an instance with the provided factory and properties.
 	 * @param consumerFactory the factory.
@@ -318,6 +320,24 @@ public abstract class AbstractMessageListenerContainer<K, V>
 	@Override
 	public int getPhase() {
 		return this.phase;
+	}
+
+	/**
+	 * Sets whether this container is part of a non-blocking retries.
+	 * @param retryable the retryable
+	 * @since 2.8.3
+	 */
+	public void setRetryable(boolean retryable) {
+		this.retryable = retryable;
+	}
+
+	/**
+	 * Whether this container is part of a non-blocking retries.
+	 * @return true if it is part of a non-blocking retries
+	 * @since 2.8.3
+	 */
+	public boolean isRetryable() {
+		return this.retryable;
 	}
 
 	/**
@@ -567,6 +587,7 @@ public abstract class AbstractMessageListenerContainer<K, V>
 	 * @since 2.8
 	 */
 	protected abstract void doStop(Runnable callback, boolean normal);
+
 
 	/**
 	 * Return default implementation of {@link ConsumerRebalanceListener} instance.

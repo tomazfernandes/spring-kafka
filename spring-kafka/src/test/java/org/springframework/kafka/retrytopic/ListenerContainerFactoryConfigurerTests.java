@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -137,26 +136,35 @@ class ListenerContainerFactoryConfigurerTests {
 	private final ListenerContainerFactoryConfigurer.Configuration lcfcConfiguration =
 			new ListenerContainerFactoryConfigurer.Configuration(Collections.singletonList(backOffValue));
 
+
 	@Test
-	void shouldSetupErrorHandling() {
+	void shouldSetupPartitionEventIntervalAndPollTimoutAndErrorHandling() {
 
 		// given
 		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(container.isRetryable()).willReturn(true);
 		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
-		given(containerProperties.getAckMode()).willReturn(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
-		given(containerProperties.getCommitCallback()).willReturn(offsetCommitCallback);
+		given(containerProperties.getMessageListener()).willReturn(listener);
 		given(configuration.forContainerFactoryConfigurer()).willReturn(lcfcConfiguration);
+		given(containerProperties.getPollTimeout()).willReturn(ContainerProperties.DEFAULT_POLL_TIMEOUT);
+		given(containerProperties.getAckMode()).willReturn(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
 
-		// when
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager,
 						deadLetterPublishingRecovererFactory, clock);
 		configurer.setErrorHandlerCustomizer(errorHandlerCustomizer);
+
+		// when
 		configurer
 				.configure(containerFactory, configuration.forContainerFactoryConfigurer());
 
 		// then
-		then(containerFactory).should(times(1)).setCommonErrorHandler(errorHandlerCaptor.capture());
+		then(containerFactory).should(times(1))
+				.addContainerCustomizer(containerCustomizerCaptor.capture());
+		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
+		containerCustomizer.configure(container);
+
+		then(container).should(times(1)).setCommonErrorHandler(errorHandlerCaptor.capture());
 		CommonErrorHandler errorHandler = errorHandlerCaptor.getValue();
 		assertThat(DefaultErrorHandler.class.isAssignableFrom(errorHandler.getClass())).isTrue();
 		DefaultErrorHandler seekToCurrent = (DefaultErrorHandler) errorHandler;
@@ -165,33 +173,7 @@ class ListenerContainerFactoryConfigurerTests {
 		seekToCurrent.handleRemaining(ex, records, consumer, container);
 
 		then(recoverer).should(times(1)).accept(record, consumer, ex);
-		then(consumer).should(times(1)).commitAsync(any(Map.class), eq(offsetCommitCallback));
 		then(errorHandlerCustomizer).should(times(1)).accept(errorHandler);
-
-	}
-
-	@Test
-	void shouldSetPartitionEventIntervalAndPollTimout() {
-
-		// given
-		given(container.getContainerProperties()).willReturn(containerProperties);
-		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
-		given(containerProperties.getMessageListener()).willReturn(listener);
-		given(configuration.forContainerFactoryConfigurer()).willReturn(lcfcConfiguration);
-		given(containerProperties.getPollTimeout()).willReturn(ContainerProperties.DEFAULT_POLL_TIMEOUT);
-
-		// when
-		ListenerContainerFactoryConfigurer configurer =
-				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager,
-						deadLetterPublishingRecovererFactory, clock);
-		configurer
-				.configure(containerFactory, configuration.forContainerFactoryConfigurer());
-
-		// then
-		then(containerFactory).should(times(1))
-				.setContainerCustomizer(containerCustomizerCaptor.capture());
-		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
-		containerCustomizer.configure(container);
 
 		then(containerProperties).should(times(1))
 				.setIdlePartitionEventInterval(backOffValue / 4);
@@ -204,6 +186,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// given
 		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(container.isRetryable()).willReturn(true);
 		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
 		given(containerProperties.getMessageListener()).willReturn(listener);
 		given(configuration.forContainerFactoryConfigurer()).willReturn(lcfcConfiguration);
@@ -219,7 +202,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// then
 		then(containerFactory).should(times(1))
-				.setContainerCustomizer(containerCustomizerCaptor.capture());
+				.addContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
@@ -234,6 +217,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// given
 		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(container.isRetryable()).willReturn(true);
 		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
 		given(containerProperties.getMessageListener()).willReturn(listener);
 		given(configuration.forContainerFactoryConfigurer())
@@ -249,7 +233,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// then
 		then(containerFactory).should(times(1))
-				.setContainerCustomizer(containerCustomizerCaptor.capture());
+				.addContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
@@ -264,6 +248,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// given
 		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(container.isRetryable()).willReturn(true);
 		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
 		given(containerProperties.getMessageListener()).willReturn(listener);
 		given(configuration.forContainerFactoryConfigurer())
@@ -279,7 +264,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// then
 		then(containerFactory).should(times(1))
-				.setContainerCustomizer(containerCustomizerCaptor.capture());
+				.addContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
@@ -294,6 +279,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// given
 		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(container.isRetryable()).willReturn(true);
 		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
 		given(containerProperties.getMessageListener()).willReturn(listener);
 		given(configuration.forContainerFactoryConfigurer())
@@ -308,7 +294,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// then
 		then(containerFactory).should(times(1))
-				.setContainerCustomizer(containerCustomizerCaptor.capture());
+				.addContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
@@ -323,6 +309,7 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// given
 		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(container.isRetryable()).willReturn(true);
 		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
 		given(containerProperties.getMessageListener()).willReturn(listener);
 		RecordHeaders headers = new RecordHeaders();
@@ -343,7 +330,7 @@ class ListenerContainerFactoryConfigurerTests {
 		// then
 		then(containerFactory)
 				.should(times(1))
-				.setContainerCustomizer(containerCustomizerCaptor.capture());
+				.addContainerCustomizer(containerCustomizerCaptor.capture());
 		ContainerCustomizer containerCustomizer = containerCustomizerCaptor.getValue();
 		containerCustomizer.configure(container);
 
@@ -364,7 +351,6 @@ class ListenerContainerFactoryConfigurerTests {
 	void shouldCacheFactoryInstances() {
 
 		// given
-		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
 		given(configuration.forContainerFactoryConfigurer()).willReturn(lcfcConfiguration);
 
 		// when
@@ -378,7 +364,6 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// then
 		assertThat(secondFactory).isEqualTo(factory);
-		then(containerFactory).should(times(1)).setContainerCustomizer(any());
-		then(containerFactory).should(times(1)).setCommonErrorHandler(any());
+		then(containerFactory).should(times(1)).addContainerCustomizer(any());
 	}
 }

@@ -113,9 +113,14 @@ public class ListenerContainerFactoryConfigurer {
 			ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, List<Long> backOffValues) {
 
 		containerFactory
-				.setContainerCustomizer(container -> setupBackoffAwareMessageListenerAdapter(container, backOffValues));
-		containerFactory
-				.setCommonErrorHandler(createErrorHandler(this.deadLetterPublishingRecovererFactory.create()));
+				.addContainerCustomizer(container -> {
+							if (container.isRetryable()) {
+								setupBackoffAwareMessageListenerAdapter(container, backOffValues);
+								container.setCommonErrorHandler(createErrorHandler(
+										this.deadLetterPublishingRecovererFactory.create()));
+							}
+						}
+				);
 		return containerFactory;
 	}
 

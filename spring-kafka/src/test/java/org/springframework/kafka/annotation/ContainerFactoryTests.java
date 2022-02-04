@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,16 +52,38 @@ public class ContainerFactoryTests {
 		factory.setPhase(42);
 		factory.getContainerProperties().setAckCount(123);
 		AtomicBoolean customized = new AtomicBoolean();
+		AtomicBoolean customized2 = new AtomicBoolean();
 		factory.setContainerCustomizer(container -> customized.set(true));
+		factory.addContainerCustomizer(container -> customized2.set(true));
 		ConcurrentMessageListenerContainer<String, String> container = factory.createContainer("foo");
 		assertThat(container.isAutoStartup()).isFalse();
 		assertThat(container.getPhase()).isEqualTo(42);
 		assertThat(container.getContainerProperties().getAckCount()).isEqualTo(123);
 		assertThat(KafkaTestUtils.getPropertyValue(container, "concurrency", Integer.class)).isEqualTo(22);
 		assertThat(customized).isTrue();
+		assertThat(customized2).isTrue();
 		ConcurrentMessageListenerContainer<String, String> container2 = factory.createContainer("foo");
 		assertThat(container.getContainerProperties().getKafkaConsumerProperties())
 				.isNotSameAs(container2.getContainerProperties().getKafkaConsumerProperties());
+	}
+
+	@Test
+	void testAddContainerCustomizer() {
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
+				new ConcurrentKafkaListenerContainerFactory<>();
+		@SuppressWarnings("unchecked")
+		ConsumerFactory<String, String> cf = mock(ConsumerFactory.class);
+		factory.setConsumerFactory(cf);
+		AtomicBoolean customized = new AtomicBoolean();
+		AtomicBoolean customized2 = new AtomicBoolean();
+		AtomicBoolean customized3 = new AtomicBoolean();
+		factory.addContainerCustomizer(container -> customized.set(true));
+		factory.addContainerCustomizer(container -> customized2.set(true));
+		factory.addContainerCustomizer(container -> customized3.set(true));
+		ConcurrentMessageListenerContainer<String, String> container = factory.createContainer("foo");
+		assertThat(customized).isTrue();
+		assertThat(customized2).isTrue();
+		assertThat(customized3).isTrue();
 	}
 
 	@SuppressWarnings("unchecked")

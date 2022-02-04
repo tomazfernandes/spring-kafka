@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2021 the original author or authors.
+ * Copyright 2014-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,6 +117,8 @@ public abstract class AbstractKafkaListenerEndpoint<K, V>
 	private boolean splitIterables = true;
 
 	private BatchToRecordAdapter<K, V> batchToRecordAdapter;
+
+	private boolean retryable;
 
 	@Override
 	public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
@@ -339,6 +341,25 @@ public abstract class AbstractKafkaListenerEndpoint<K, V>
 	@Deprecated
 	public void setRetryTemplate(RetryTemplate retryTemplate) {
 		this.retryTemplate = retryTemplate;
+	}
+
+	/**
+	 * Sets whether this container is part of a non-blocking retries pattern.
+	 * @param retryable the retryable
+	 * @since 2.8.3
+	 */
+	public void setRetryable(boolean retryable) {
+		this.retryable = retryable;
+	}
+
+	/**
+	 * Whether this container is part of a non-blocking retries pattern.
+	 * @return true if it is part of a non-blocking retries pattern.
+	 * @since 2.8.3
+	 */
+	@Override
+	public boolean isRetryable() {
+		return this.retryable;
 	}
 
 	@Nullable
