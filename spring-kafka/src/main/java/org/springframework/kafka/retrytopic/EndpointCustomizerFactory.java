@@ -76,7 +76,6 @@ public class EndpointCustomizerFactory {
 			endpoint.setGroup(namesProvider.getGroup(endpoint));
 			endpoint.setBean(bean);
 			endpoint.setMethod(method);
-			endpoint.setRetryable(true);
 			Boolean autoStartDltHandler = properties.autoStartDltHandler();
 			if (autoStartDltHandler != null && properties.isDltTopic()) {
 				endpoint.setAutoStartup(autoStartDltHandler);
