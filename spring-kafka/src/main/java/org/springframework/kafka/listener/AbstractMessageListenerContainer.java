@@ -588,7 +588,6 @@ public abstract class AbstractMessageListenerContainer<K, V>
 	 */
 	protected abstract void doStop(Runnable callback, boolean normal);
 
-
 	/**
 	 * Return default implementation of {@link ConsumerRebalanceListener} instance.
 	 * @return the {@link ConsumerRebalanceListener} currently assigned to this container.
