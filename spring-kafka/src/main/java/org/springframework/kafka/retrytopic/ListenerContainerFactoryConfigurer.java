@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 import org.apache.commons.logging.LogFactory;
 
@@ -30,6 +31,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.KafkaException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerEndpoint;
 import org.springframework.kafka.listener.AcknowledgingConsumerAwareMessageListener;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
@@ -38,18 +41,20 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
+import org.springframework.kafka.support.TopicPartitionOffset;
 import org.springframework.util.Assert;
 import org.springframework.util.backoff.FixedBackOff;
 
 /**
  *
  * Configures the provided {@link ConcurrentKafkaListenerContainerFactory} with a
- * {@link DefaultErrorHandler}, the {@link DeadLetterPublishingRecoverer} created by
+ * {@link DefaultErrorHandler} and the {@link DeadLetterPublishingRecoverer} created by
  * the {@link DeadLetterPublishingRecovererFactory}.
  *
- * Mind that the same factory can be used by many different
- * {@link org.springframework.kafka.annotation.RetryableTopic}s but should not be shared
- * with non retryable topics as some of their configurations will be overriden.
+ * Also sets some container properties such as idlePartitionEventInterval and pollTimeout
+ * if they have default values.
+ *
+ * Since 2.8.3 the same factory can be shared among retryable and non-retryable endpoints.
  *
  * @author Tomaz Fernandes
  * @since 2.7
@@ -95,6 +100,7 @@ public class ListenerContainerFactoryConfigurer {
 		this.clock = clock;
 	}
 
+	@Deprecated
 	public ConcurrentKafkaListenerContainerFactory<?, ?> configure(
 			ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, Configuration configuration) {
 		return isCached(containerFactory)
@@ -102,11 +108,21 @@ public class ListenerContainerFactoryConfigurer {
 				: addToCache(doConfigure(containerFactory, configuration.backOffValues));
 	}
 
+	@Deprecated
 	public ConcurrentKafkaListenerContainerFactory<?, ?> configureWithoutBackOffValues(
 			ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, Configuration configuration) {
 		return isCached(containerFactory)
 				? containerFactory
 				: doConfigure(containerFactory, Collections.emptyList());
+	}
+
+	public KafkaListenerContainerFactory<?> decorateFactory(ConcurrentKafkaListenerContainerFactory<?, ?> factory, Configuration configuration) {
+		return new RetryTopicListenerContainerFactoryDecorator(factory, configuration.backOffValues);
+	}
+
+	public KafkaListenerContainerFactory<?> decorateFactoryWithoutBackOffValues(
+			ConcurrentKafkaListenerContainerFactory<?, ?> factory, Configuration configuration) {
+		return new RetryTopicListenerContainerFactoryDecorator(factory, Collections.emptyList());
 	}
 
 	private ConcurrentKafkaListenerContainerFactory<?, ?> doConfigure(
@@ -215,6 +231,45 @@ public class ListenerContainerFactoryConfigurer {
 				() -> String.format("The provided class %s is not assignable from %s",
 						obj.getClass().getSimpleName(), clazz.getSimpleName()));
 		return (T) obj;
+	}
+
+	private class RetryTopicListenerContainerFactoryDecorator implements KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<?, ?>> {
+
+		private final ConcurrentKafkaListenerContainerFactory<?, ?> delegate;
+		private final List<Long> backOffValues;
+
+		RetryTopicListenerContainerFactoryDecorator(ConcurrentKafkaListenerContainerFactory<?, ?> delegate, List<Long> backOffValues) {
+			this.delegate = delegate;
+			this.backOffValues = backOffValues;
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<?, ?> createListenerContainer(KafkaListenerEndpoint endpoint) {
+			return decorate(this.delegate.createListenerContainer(endpoint));
+		}
+
+		private ConcurrentMessageListenerContainer<?, ?> decorate(ConcurrentMessageListenerContainer<?, ?> listenerContainer) {
+			setupBackoffAwareMessageListenerAdapter(listenerContainer, this.backOffValues);
+			listenerContainer
+					.setCommonErrorHandler(createErrorHandler(
+							ListenerContainerFactoryConfigurer.this.deadLetterPublishingRecovererFactory.create()));
+			return listenerContainer;
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<?, ?> createContainer(TopicPartitionOffset... topicPartitions) {
+			return decorate(this.delegate.createContainer(topicPartitions));
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<?, ?> createContainer(String... topics) {
+			return decorate(this.delegate.createContainer(topics));
+		}
+
+		@Override
+		public ConcurrentMessageListenerContainer<?, ?> createContainer(Pattern topicPattern) {
+			return decorate(this.delegate.createContainer(topicPattern));
+		}
 	}
 
 	static class Configuration {
