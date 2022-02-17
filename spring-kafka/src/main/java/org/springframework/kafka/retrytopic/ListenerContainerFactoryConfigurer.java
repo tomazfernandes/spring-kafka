@@ -47,14 +47,17 @@ import org.springframework.util.backoff.FixedBackOff;
 
 /**
  *
- * Configures the provided {@link ConcurrentKafkaListenerContainerFactory} with a
- * {@link DefaultErrorHandler} and the {@link DeadLetterPublishingRecoverer} created by
- * the {@link DeadLetterPublishingRecovererFactory}.
+ * Decorates the provided {@link ConcurrentKafkaListenerContainerFactory} to add a
+ * {@link DefaultErrorHandler} and the {@link DeadLetterPublishingRecoverer}
+ * created by the {@link DeadLetterPublishingRecovererFactory}.
  *
- * Also sets some container properties such as idlePartitionEventInterval and pollTimeout
- * if they have default values.
+ * Also sets {@link ContainerProperties#setIdlePartitionEventInterval(Long)}
+ * and {@link ContainerProperties#setPollTimeout(long)} if its defaults haven't
+ * been overridden by the user.
  *
- * Since 2.8.3 the same factory can be shared among retryable and non-retryable endpoints.
+ * Since 2.8.3 these configurations don't interfere with the provided factory
+ * instance itself, so the same factory instance can be shared among retryable and
+ * non-retryable endpoints.
  *
  * @author Tomaz Fernandes
  * @since 2.7
@@ -100,6 +103,14 @@ public class ListenerContainerFactoryConfigurer {
 		this.clock = clock;
 	}
 
+	/**
+	 * Configures the provided {@link ConcurrentKafkaListenerContainerFactory}.
+	 * @param containerFactory the factory instance to be configured.
+	 * @param configuration the configuration provided by the {@link RetryTopicConfiguration}.
+	 * @return the configured factory instance.
+	 * @deprecated in favor of
+	 * {@link #decorateFactory(ConcurrentKafkaListenerContainerFactory, Configuration)}.
+	 */
 	@Deprecated
 	public ConcurrentKafkaListenerContainerFactory<?, ?> configure(
 			ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, Configuration configuration) {
@@ -108,6 +119,15 @@ public class ListenerContainerFactoryConfigurer {
 				: addToCache(doConfigure(containerFactory, configuration.backOffValues));
 	}
 
+	/**
+	 * Configures the provided {@link ConcurrentKafkaListenerContainerFactory}.
+	 * Meant to be used for the main endpoint, this method ignores the provided backOff values.
+	 * @param containerFactory the factory instance to be configured.
+	 * @param configuration the configuration provided by the {@link RetryTopicConfiguration}.
+	 * @return the configured factory instance.
+	 * @deprecated in favor of
+	 * {@link #decorateFactoryWithoutBackOffValues(ConcurrentKafkaListenerContainerFactory, Configuration)}.
+	 */
 	@Deprecated
 	public ConcurrentKafkaListenerContainerFactory<?, ?> configureWithoutBackOffValues(
 			ConcurrentKafkaListenerContainerFactory<?, ?> containerFactory, Configuration configuration) {
@@ -116,10 +136,24 @@ public class ListenerContainerFactoryConfigurer {
 				: doConfigure(containerFactory, Collections.emptyList());
 	}
 
-	public KafkaListenerContainerFactory<?> decorateFactory(ConcurrentKafkaListenerContainerFactory<?, ?> factory, Configuration configuration) {
+	/**
+	 * Decorates the provided {@link ConcurrentKafkaListenerContainerFactory}.
+	 * @param factory the factory instance to be decorated.
+	 * @param configuration the configuration provided by the {@link RetryTopicConfiguration}.
+	 * @return the decorated factory instance.
+	 */
+	public KafkaListenerContainerFactory<?> decorateFactory(ConcurrentKafkaListenerContainerFactory<?, ?> factory,
+															Configuration configuration) {
 		return new RetryTopicListenerContainerFactoryDecorator(factory, configuration.backOffValues);
 	}
 
+	/**
+	 * Decorates the provided {@link ConcurrentKafkaListenerContainerFactory}.
+	 * Meant to be used for the main endpoint, this method ignores the provided backOff values.
+	 * @param factory the factory instance to be decorated.
+	 * @param configuration the configuration provided by the {@link RetryTopicConfiguration}.
+	 * @return the decorated factory instance.
+	 */
 	public KafkaListenerContainerFactory<?> decorateFactoryWithoutBackOffValues(
 			ConcurrentKafkaListenerContainerFactory<?, ?> factory, Configuration configuration) {
 		return new RetryTopicListenerContainerFactoryDecorator(factory, Collections.emptyList());

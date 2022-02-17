@@ -405,8 +405,10 @@ public class RetryTopicConfigurer {
 	}
 
 	/**
-	 * Set to true if you want the {@link ListenerContainerFactoryConfigurer} to behave as before 2.8.3.
+	 * Set to true if you want the {@link ListenerContainerFactoryConfigurer} to
+	 * behave as before 2.8.3.
 	 * @param useLegacyFactoryConfigurer Whether to use the legacy factory configuration.
+	 * @deprecated for removal after the deprecated legacy configuration methods are removed.
 	 */
 	@Deprecated
 	public void useLegacyFactoryConfigurer(boolean useLegacyFactoryConfigurer) {
