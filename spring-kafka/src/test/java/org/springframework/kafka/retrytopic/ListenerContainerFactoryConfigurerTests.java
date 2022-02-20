@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
@@ -59,6 +60,8 @@ import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.adapter.AbstractDelegatingMessageListenerAdapter;
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.util.backoff.BackOff;
+import org.springframework.util.backoff.BackOffExecution;
 
 /**
  * @author Tomaz Fernandes
@@ -406,6 +409,34 @@ class ListenerContainerFactoryConfigurerTests {
 		then(listener).should(times(1)).onMessage(data, ack, consumer);
 
 		then(this.configurerContainerCustomizer).should(times(1)).accept(container);
+	}
+
+	@Test
+	void shouldUseGivenBackOff() {
+
+		// given
+		given(container.getContainerProperties()).willReturn(containerProperties);
+		given(deadLetterPublishingRecovererFactory.create()).willReturn(recoverer);
+		given(containerProperties.getMessageListener()).willReturn(listener);
+		given(configuration.forContainerFactoryConfigurer()).willReturn(lcfcConfiguration);
+		willReturn(container).given(containerFactory).createListenerContainer(endpoint);
+		BackOff backOffMock = mock(BackOff.class);
+		BackOffExecution backOffExecutionMock = mock(BackOffExecution.class);
+		given(backOffMock.start()).willReturn(backOffExecutionMock);
+
+		ListenerContainerFactoryConfigurer configurer =
+				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager,
+						deadLetterPublishingRecovererFactory, clock);
+
+		configurer.setBlockingRetriesBackOff(backOffMock);
+
+		// when
+		KafkaListenerContainerFactory<?> decoratedFactory =
+				configurer.decorateFactory(this.containerFactory, configuration.forContainerFactoryConfigurer());
+		decoratedFactory.createListenerContainer(endpoint);
+
+		// then
+		then(backOffMock).should().start();
 	}
 
 	@Test

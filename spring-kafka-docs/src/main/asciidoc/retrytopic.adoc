@@ -329,6 +329,37 @@ public DefaultDestinationTopicResolver topicResolver(ApplicationContext applicat
 NOTE: To disable fatal exceptions' classification, clear the default list using the `setClassifications` method in `DefaultDestinationTopicResolver`.
 
 
+[[retry-topic-combine-blocking]]
+===== Combine blocking and non-blocking retries
+
+Starting in 2.8.3 you can configure the framework to use both blocking and non-blocking retries in conjunction.
+For example, you can have a set of exceptions that would likely trigger errors on the next records as well, such as `DatabaseAccessException`, so you can retry the same record a few times before sending it to the retry topic, or straight to the DLT.
+
+You can configure the blocking retries as follows:
+
+====
+[source, java]
+----
+@Bean(name = RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_CONFIGURER_NAME)
+public ListenerContainerFactoryConfigurer lcfc(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
+                                               DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
+                                               @Qualifier(RetryTopicInternalBeanNames
+                                                       .INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
+    ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory, clock);
+    lcfc.setBlockingRetriesBackOff(new FixedBackOff(50, 3));
+    lcfc.setErrorHandlerCustomizer(commonErrorHandler -> ((DefaultErrorHandler) commonErrorHandler)
+            .addNotRetryableExceptions(MyFatalException.class);
+    return lcfc;
+}
+----
+====
+
+NOTE: If you set a blocking retry back off, the default is to retry on all exceptions except the fatal ones in <<default-eh>>.
+You can add or remove exceptions using the `addNotRetryableException` and `removeNotRetryableException` methods in the `ListenerContainerFactoryConfigurer`.
+
+NOTE: In combination with the global retryable topic's fatal classification, you can configure the framework for any behavior you'd like, such as having some exceptions trigger both blocking and non-blocking retries, trigger only one kind or the other, or go straight to the DLT without retries of any kind.
+
+
 ===== Include and Exclude Topics
 
 You can decide which topics will and will not be handled by a `RetryTopicConfiguration` bean via the .includeTopic(String topic), .includeTopics(Collection<String> topics) .excludeTopic(String topic) and .excludeTopics(Collection<String> topics) methods.
