@@ -22,6 +22,7 @@ import java.util.Map;
 import org.springframework.classify.BinaryExceptionClassifier;
 import org.springframework.kafka.support.converter.ConversionException;
 import org.springframework.kafka.support.serializer.DeserializationException;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.converter.MessageConversionException;
 import org.springframework.messaging.handler.invocation.MethodArgumentResolutionException;
 import org.springframework.util.Assert;
@@ -185,7 +186,8 @@ public abstract class ExceptionClassifier extends KafkaExceptionLogLevelAware {
 	 * @see #addNotRetryableExceptions(Class...)
 	 * @see #setClassifications(Map, boolean)
 	 */
-	public boolean removeClassification(Class<? extends Exception> exceptionType) {
+	@Nullable
+	public Boolean removeClassification(Class<? extends Exception> exceptionType) {
 		return this.classifier.getClassified().remove(exceptionType);
 	}
 

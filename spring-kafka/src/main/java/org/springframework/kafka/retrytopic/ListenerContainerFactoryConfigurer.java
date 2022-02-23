@@ -83,6 +83,8 @@ public class ListenerContainerFactoryConfigurer {
 
 	private BackOff providedBlockingBackOff = null;
 
+	private Class<? extends Exception>[] blockingExceptionTypes = null;
+
 	private Consumer<ConcurrentMessageListenerContainer<?, ?>> containerCustomizer = container -> {
 	};
 
@@ -162,9 +164,9 @@ public class ListenerContainerFactoryConfigurer {
 
 	/**
 	 * Set a {@link BackOff} to be used with blocking retries.
-	 * You can specify the exceptions to be retried using the method
-	 * {@link org.springframework.kafka.listener.ExceptionClassifier#addRetryableExceptions(Class[])}
-	 * By default, no exceptions are retried via blocking.
+	 * If the BackOff execution returns STOP, the record will be forwarded
+	 * to the next retry topic or to the DLT, depending on how the non-blocking retries
+	 * are configured.
 	 * @param blockingBackOff the BackOff policy to be used by blocking retries.
 	 * @since 2.8.4
 	 * @see DefaultErrorHandler
@@ -172,6 +174,20 @@ public class ListenerContainerFactoryConfigurer {
 	public void setBlockingRetriesBackOff(BackOff blockingBackOff) {
 		Assert.notNull(blockingBackOff, "The provided BackOff cannot be null");
 		this.providedBlockingBackOff = blockingBackOff;
+	}
+
+	/**
+	 * Specify the exceptions to be retried via blocking.
+	 * @param exceptionTypes the exceptions that should be retried.
+	 * @since 2.8.4
+	 * @see DefaultErrorHandler
+	 */
+	@SafeVarargs
+	@SuppressWarnings("varargs")
+	public final void setBlockingRetryableExceptions(Class<? extends Exception>... exceptionTypes) {
+		Assert.notNull(exceptionTypes, "The exception types cannot be null");
+		Assert.noNullElements(exceptionTypes, "The exception types cannot have null elements");
+		this.blockingExceptionTypes = exceptionTypes;
 	}
 
 	private ConcurrentKafkaListenerContainerFactory<?, ?> doConfigure(
@@ -213,6 +229,9 @@ public class ListenerContainerFactoryConfigurer {
 		errorHandler.defaultFalse();
 		errorHandler.setCommitRecovered(true);
 		errorHandler.setLogLevel(KafkaException.Level.DEBUG);
+		if (this.blockingExceptionTypes != null) {
+			errorHandler.addRetryableExceptions(this.blockingExceptionTypes);
+		}
 		this.errorHandlerCustomizer.accept(errorHandler);
 		return errorHandler;
 	}

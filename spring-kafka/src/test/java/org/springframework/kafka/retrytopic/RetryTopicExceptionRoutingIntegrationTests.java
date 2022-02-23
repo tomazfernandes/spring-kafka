@@ -52,7 +52,6 @@ import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.kafka.support.converter.ConversionException;
@@ -391,8 +390,7 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 			ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory, clock);
 
 			lcfc.setBlockingRetriesBackOff(new FixedBackOff(50, 3));
-			lcfc.setErrorHandlerCustomizer(eh -> ((DefaultErrorHandler) eh)
-					.addRetryableExceptions(ShouldRetryOnlyBlockingException.class, ShouldRetryViaBothException.class));
+			lcfc.setBlockingRetryableExceptions(ShouldRetryOnlyBlockingException.class, ShouldRetryViaBothException.class);
 			return lcfc;
 		}
 

@@ -60,6 +60,7 @@ import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.adapter.AbstractDelegatingMessageListenerAdapter;
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.kafka.support.converter.ConversionException;
 import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.BackOffExecution;
 
@@ -407,12 +408,11 @@ class ListenerContainerFactoryConfigurerTests {
 				.createContext(anyLong(), listenerIdCaptor.capture(), any(TopicPartition.class), eq(consumer));
 		assertThat(listenerIdCaptor.getValue()).isEqualTo(testListenerId);
 		then(listener).should(times(1)).onMessage(data, ack, consumer);
-
 		then(this.configurerContainerCustomizer).should(times(1)).accept(container);
 	}
 
 	@Test
-	void shouldUseGivenBackOff() {
+	void shouldUseGivenBackOffAndExceptions() {
 
 		// given
 		given(container.getContainerProperties()).willReturn(containerProperties);
@@ -427,8 +427,8 @@ class ListenerContainerFactoryConfigurerTests {
 		ListenerContainerFactoryConfigurer configurer =
 				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager,
 						deadLetterPublishingRecovererFactory, clock);
-
 		configurer.setBlockingRetriesBackOff(backOffMock);
+		configurer.setBlockingRetryableExceptions(IllegalArgumentException.class, IllegalStateException.class);
 
 		// when
 		KafkaListenerContainerFactory<?> decoratedFactory =
@@ -437,6 +437,14 @@ class ListenerContainerFactoryConfigurerTests {
 
 		// then
 		then(backOffMock).should().start();
+		then(container).should().setCommonErrorHandler(errorHandlerCaptor.capture());
+		CommonErrorHandler errorHandler = errorHandlerCaptor.getValue();
+		assertThat(DefaultErrorHandler.class.isAssignableFrom(errorHandler.getClass())).isTrue();
+		DefaultErrorHandler defaultErrorHandler = (DefaultErrorHandler) errorHandler;
+		assertThat(defaultErrorHandler.removeClassification(IllegalArgumentException.class)).isTrue();
+		assertThat(defaultErrorHandler.removeClassification(IllegalStateException.class)).isTrue();
+		assertThat(defaultErrorHandler.removeClassification(ConversionException.class)).isNull();
+
 	}
 
 	@Test
