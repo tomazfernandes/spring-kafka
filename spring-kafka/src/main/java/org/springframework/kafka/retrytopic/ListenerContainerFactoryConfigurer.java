@@ -17,6 +17,7 @@
 package org.springframework.kafka.retrytopic;
 
 import java.time.Clock;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -173,6 +174,10 @@ public class ListenerContainerFactoryConfigurer {
 	 */
 	public void setBlockingRetriesBackOff(BackOff blockingBackOff) {
 		Assert.notNull(blockingBackOff, "The provided BackOff cannot be null");
+		Assert.state(this.providedBlockingBackOff == null, () ->
+				"Blocking retries back off has already been set. Current: "
+						+ this.providedBlockingBackOff
+						+ " You provided: " + blockingBackOff);
 		this.providedBlockingBackOff = blockingBackOff;
 	}
 
@@ -187,6 +192,10 @@ public class ListenerContainerFactoryConfigurer {
 	public final void setBlockingRetryableExceptions(Class<? extends Exception>... exceptionTypes) {
 		Assert.notNull(exceptionTypes, "The exception types cannot be null");
 		Assert.noNullElements(exceptionTypes, "The exception types cannot have null elements");
+		Assert.state(this.blockingExceptionTypes == null,
+				() -> "Blocking retryable exceptions have already been set."
+						+  "Current ones: " + Arrays.toString(this.blockingExceptionTypes)
+						+ " You provided: " + Arrays.toString(exceptionTypes));
 		this.blockingExceptionTypes = exceptionTypes;
 	}
 

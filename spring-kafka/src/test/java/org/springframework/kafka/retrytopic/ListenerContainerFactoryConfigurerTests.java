@@ -17,6 +17,7 @@
 package org.springframework.kafka.retrytopic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -61,15 +62,17 @@ import org.springframework.kafka.listener.adapter.AbstractDelegatingMessageListe
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.converter.ConversionException;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.BackOffExecution;
+import org.springframework.util.backoff.FixedBackOff;
 
 /**
  * @author Tomaz Fernandes
  * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings({"unchecked", "rawtypes"})
+@SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
 class ListenerContainerFactoryConfigurerTests {
 
 	@Mock
@@ -446,6 +449,24 @@ class ListenerContainerFactoryConfigurerTests {
 		assertThat(defaultErrorHandler.removeClassification(ConversionException.class)).isNull();
 
 	}
+
+
+	@Test
+	void shouldThrowIfBackOffOrRetryablesAlreadySet() {
+		// given
+		BackOff backOff = new FixedBackOff();
+		ListenerContainerFactoryConfigurer configurer =
+				new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager,
+						deadLetterPublishingRecovererFactory, clock);
+		configurer.setBlockingRetriesBackOff(backOff);
+		configurer.setBlockingRetryableExceptions(IllegalArgumentException.class, IllegalStateException.class);
+
+		// when / then
+		assertThatThrownBy(() -> configurer.setBlockingRetriesBackOff(backOff)).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> configurer.setBlockingRetryableExceptions(ConversionException.class, DeserializationException.class))
+				.isInstanceOf(IllegalStateException.class);
+	}
+
 
 	@Test
 	void shouldCacheFactoryInstances() {

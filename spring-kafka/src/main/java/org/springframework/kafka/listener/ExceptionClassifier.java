@@ -181,7 +181,8 @@ public abstract class ExceptionClassifier extends KafkaExceptionLogLevelAware {
 	 * </ul>
 	 * All others will be retried, unless {@link #defaultFalse()} has been called.
 	 * @param exceptionType the exception type.
-	 * @return true if the removal was successful.
+	 * @return the classification of the exception if removal was successful;
+	 * null otherwise.
 	 * @since 2.8.4
 	 * @see #addNotRetryableExceptions(Class...)
 	 * @see #setClassifications(Map, boolean)
