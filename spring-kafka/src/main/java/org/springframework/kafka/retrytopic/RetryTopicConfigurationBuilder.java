@@ -82,6 +82,10 @@ public class RetryTopicConfigurationBuilder {
 
 	private Boolean autoStartDltHandler;
 
+	/**
+	 * Creates a new instance of the builder. You can also use {@code newInstance()}.
+	 * @since 2.8.4
+	 */
 	public RetryTopicConfigurationBuilder() {
 		this.backOffPolicyProvider = new BackOffPolicyProvider();
 	}
