@@ -52,6 +52,8 @@ public class RetryTopicConfigurationBuilder {
 
 	private final List<String> excludeTopicNames = new ArrayList<>();
 
+	private final BackOffPolicyProvider backOffPolicyProvider;
+
 	private int maxAttempts = RetryTopicConstants.NOT_SET;
 
 	private BackOffPolicy backOffPolicy;
@@ -79,6 +81,10 @@ public class RetryTopicConfigurationBuilder {
 	private TopicSuffixingStrategy topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_DELAY_VALUE;
 
 	private Boolean autoStartDltHandler;
+
+	public RetryTopicConfigurationBuilder() {
+		this.backOffPolicyProvider = new BackOffPolicyProvider();
+	}
 
 	/* ---------------- DLT Behavior -------------- */
 	/**
@@ -239,6 +245,21 @@ public class RetryTopicConfigurationBuilder {
 		Assert.isNull(this.backOffPolicy, ALREADY_SELECTED);
 		Assert.notNull(backOffPolicy, "You should provide non null custom policy");
 		this.backOffPolicy = backOffPolicy;
+		return this;
+	}
+
+	/**
+	 * Sets a {@link BackOffPolicy} based on the given values.
+	 * @param min        the minimum delay value
+	 * @param max        the maximum delay value
+	 * @param multiplier the multiplier to be applied in the exponential backoff policy
+	 * @param isRandom   whether the exponential back off is random
+	 * @return the builder instance
+	 */
+	public RetryTopicConfigurationBuilder backOffFor(Long min, Long max, Double multiplier, Boolean isRandom) {
+		Assert.isNull(this.backOffPolicy, ALREADY_SELECTED);
+		this.backOffPolicy = this.backOffPolicyProvider
+				.createBackOffPolicyFor(min, max, multiplier, isRandom);
 		return this;
 	}
 

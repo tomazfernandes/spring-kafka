@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,6 @@ class RetryTopicConfigurationBuilderTests {
 		assertThat(destinationTopicProperties.get(2).delay()).isEqualTo(0);
 		assertThat(destinationTopicProperties.get(3).delay()).isEqualTo(0);
 
-
 	}
 
 	@Test
@@ -118,6 +117,20 @@ class RetryTopicConfigurationBuilderTests {
 		assertThat(destinationTopicProperties.get(1).delay() < maxInterval).isTrue();
 		assertThat(minInterval < destinationTopicProperties.get(2).delay()).isTrue();
 		assertThat(destinationTopicProperties.get(2).delay() < maxInterval).isTrue();
+		assertThat(destinationTopicProperties.get(3).delay()).isEqualTo(0);
+	}
+
+	@Test
+	void shouldCreateBackOffFromValues() {
+
+		RetryTopicConfiguration configuration = RetryTopicConfigurationBuilder
+				.newInstance()
+				.backOffFor(1000L, 1500L, 2.0, false)
+				.create(this.kafkaOperations);
+		List<DestinationTopic.Properties> destinationTopicProperties = configuration.getDestinationTopicProperties();
+		assertThat(destinationTopicProperties.get(0).delay()).isEqualTo(0);
+		assertThat(destinationTopicProperties.get(1).delay()).isEqualTo(1000);
+		assertThat(destinationTopicProperties.get(2).delay()).isEqualTo(1500);
 		assertThat(destinationTopicProperties.get(3).delay()).isEqualTo(0);
 	}
 

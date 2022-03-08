@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,11 +39,6 @@ import org.springframework.kafka.retrytopic.RetryTopicConstants;
 import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
 import org.springframework.kafka.support.EndpointHandlerMethod;
 import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.backoff.ExponentialBackOffPolicy;
-import org.springframework.retry.backoff.ExponentialRandomBackOffPolicy;
-import org.springframework.retry.backoff.FixedBackOffPolicy;
-import org.springframework.retry.backoff.SleepingBackOffPolicy;
-import org.springframework.retry.backoff.UniformRandomBackOffPolicy;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
@@ -129,9 +124,10 @@ public class RetryableTopicAnnotationProcessor {
 		if (StringUtils.hasText(annotation.autoStartDltHandler())) {
 			autoStartDlt = resolveExpressionAsBoolean(annotation.autoStartDltHandler(), "autoStartDltContainer");
 		}
+		BackOffValues boValues = createBackoffValues(annotation.backoff(), this.beanFactory);
 		return RetryTopicConfigurationBuilder.newInstance()
 				.maxAttempts(resolveExpressionAsInteger(annotation.attempts(), "attempts", true))
-				.customBackoff(createBackoffFromAnnotation(annotation.backoff(), this.beanFactory))
+				.backOffFor(boValues.min, boValues.max, boValues.multiplier, boValues.random)
 				.retryTopicSuffix(resolveExpressionAsString(annotation.retryTopicSuffix(), "retryTopicSuffix"))
 				.dltSuffix(resolveExpressionAsString(annotation.dltTopicSuffix(), "dltTopicSuffix"))
 				.dltHandlerMethod(getDltProcessor(method, bean))
@@ -151,11 +147,10 @@ public class RetryableTopicAnnotationProcessor {
 				.create(getKafkaTemplate(annotation.kafkaTemplate(), topics));
 	}
 
-	private SleepingBackOffPolicy<?> createBackoffFromAnnotation(Backoff backoff, BeanFactory beanFactory) { // NOSONAR
+	private BackOffValues createBackoffValues(Backoff backoff, BeanFactory beanFactory) { // NOSONAR
 		StandardEvaluationContext evaluationContext = new StandardEvaluationContext();
 		evaluationContext.setBeanResolver(new BeanFactoryResolver(beanFactory));
 
-		// Code from Spring Retry
 		Long min = backoff.delay() == 0 ? backoff.value() : backoff.delay();
 		if (StringUtils.hasText(backoff.delayExpression())) {
 			min = resolveExpressionAsLong(backoff.delayExpression(), "delayExpression", true);
@@ -168,27 +163,9 @@ public class RetryableTopicAnnotationProcessor {
 		if (StringUtils.hasText(backoff.multiplierExpression())) {
 			multiplier = resolveExpressionAsDouble(backoff.multiplierExpression(), "multiplierExpression", true);
 		}
-		if (multiplier != null && multiplier > 0) {
-			ExponentialBackOffPolicy policy = new ExponentialBackOffPolicy();
-			if (backoff.random()) {
-				policy = new ExponentialRandomBackOffPolicy();
-			}
-			policy.setInitialInterval(min);
-			policy.setMultiplier(multiplier);
-			policy.setMaxInterval(max > min ? max : ExponentialBackOffPolicy.DEFAULT_MAX_INTERVAL);
-			return policy;
-		}
-		if (max != null && min != null && max > min) {
-			UniformRandomBackOffPolicy policy = new UniformRandomBackOffPolicy();
-			policy.setMinBackOffPeriod(min);
-			policy.setMaxBackOffPeriod(max);
-			return policy;
-		}
-		FixedBackOffPolicy policy = new FixedBackOffPolicy();
-		if (min != null) {
-			policy.setBackOffPeriod(min);
-		}
-		return policy;
+		Boolean random = backoff.random();
+
+		return new BackOffValues(min, max, multiplier, random);
 	}
 
 	private EndpointHandlerMethod getDltProcessor(Method listenerMethod, Object bean) {
@@ -384,6 +361,20 @@ public class RetryableTopicAnnotationProcessor {
 			return ((ConfigurableBeanFactory) this.beanFactory).resolveEmbeddedValue(value);
 		}
 		return value;
+	}
+
+	private static final class BackOffValues {
+		final Long min;
+		final Long max;
+		final Double multiplier;
+		final Boolean random;
+
+		private BackOffValues(Long min, Long max, Double multiplier, Boolean random) {
+			this.min = min;
+			this.max = max;
+			this.multiplier = multiplier;
+			this.random = random;
+		}
 	}
 
 }
