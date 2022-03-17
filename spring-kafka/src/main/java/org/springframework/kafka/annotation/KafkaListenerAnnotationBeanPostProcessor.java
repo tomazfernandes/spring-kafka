@@ -58,8 +58,6 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.config.Scope;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -86,7 +84,6 @@ import org.springframework.kafka.config.MultiMethodKafkaListenerEndpoint;
 import org.springframework.kafka.listener.ContainerGroupSequencer;
 import org.springframework.kafka.listener.KafkaListenerErrorHandler;
 import org.springframework.kafka.listener.adapter.RecordFilterStrategy;
-import org.springframework.kafka.retrytopic.RetryTopicBootstrapper;
 import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
@@ -503,33 +500,11 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 		KafkaListenerContainerFactory<?> factory =
 				resolveContainerFactory(kafkaListener, resolve(kafkaListener.containerFactory()), beanName);
 
-		getRetryTopicConfigurer()
+		this.beanFactory
+				.getBean(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER, RetryTopicConfigurer.class)
 				.processMainAndRetryListeners(endpointProcessor, endpoint, retryTopicConfiguration,
 						this.registrar, factory, this.defaultContainerFactoryBeanName);
 		return true;
-	}
-
-	private RetryTopicConfigurer getRetryTopicConfigurer() {
-		bootstrapRetryTopicIfNecessary();
-		return this.beanFactory.getBean(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER, RetryTopicConfigurer.class);
-	}
-
-	private void bootstrapRetryTopicIfNecessary() {
-		if (!(this.beanFactory instanceof BeanDefinitionRegistry)) {
-			throw new IllegalStateException("BeanFactory must be an instance of "
-					+ BeanDefinitionRegistry.class.getSimpleName()
-					+ " to bootstrap the RetryTopic functionality. Provided beanFactory: "
-					+ this.beanFactory.getClass().getSimpleName());
-		}
-		BeanDefinitionRegistry registry = (BeanDefinitionRegistry) this.beanFactory;
-		if (!registry.containsBeanDefinition(RetryTopicInternalBeanNames
-				.RETRY_TOPIC_BOOTSTRAPPER)) {
-			registry.registerBeanDefinition(RetryTopicInternalBeanNames
-							.RETRY_TOPIC_BOOTSTRAPPER,
-					new RootBeanDefinition(RetryTopicBootstrapper.class));
-			this.beanFactory.getBean(RetryTopicInternalBeanNames
-					.RETRY_TOPIC_BOOTSTRAPPER, RetryTopicBootstrapper.class).bootstrapRetryTopic();
-		}
 	}
 
 	private Method checkProxy(Method methodArg, Object bean) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,11 @@ import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 
 /**
  * An {@link ImportBeanDefinitionRegistrar} class that registers a {@link KafkaListenerAnnotationBeanPostProcessor}
- * bean capable of processing Spring's @{@link KafkaListener} annotation. Also register
+ * bean capable of processing Spring's @{@link KafkaListener} annotation and
  * a default {@link KafkaListenerEndpointRegistry}.
+ *
+ * Also registers a {@link RetryTopicRegistryPostProcessor} to
+ * bootstrap the non-blocking delayed retries feature if such configuration is found.
  *
  * <p>This configuration class is automatically imported when using the @{@link EnableKafka}
  * annotation.  See {@link EnableKafka} Javadoc for complete usage.
@@ -34,9 +37,11 @@ import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
  * @author Stephane Nicoll
  * @author Gary Russell
  * @author Artem Bilan
+ * @author Tomaz Fernandes
  *
  * @see KafkaListenerAnnotationBeanPostProcessor
  * @see KafkaListenerEndpointRegistry
+ * @see RetryTopicRegistryPostProcessor
  * @see EnableKafka
  */
 public class KafkaBootstrapConfiguration implements ImportBeanDefinitionRegistrar {
@@ -53,6 +58,11 @@ public class KafkaBootstrapConfiguration implements ImportBeanDefinitionRegistra
 		if (!registry.containsBeanDefinition(KafkaListenerConfigUtils.KAFKA_LISTENER_ENDPOINT_REGISTRY_BEAN_NAME)) {
 			registry.registerBeanDefinition(KafkaListenerConfigUtils.KAFKA_LISTENER_ENDPOINT_REGISTRY_BEAN_NAME,
 					new RootBeanDefinition(KafkaListenerEndpointRegistry.class));
+		}
+
+		if (!registry.containsBeanDefinition(KafkaListenerConfigUtils.RETRY_TOPIC_REGISTRY_POST_PROCESSOR_NAME)) {
+			registry.registerBeanDefinition(KafkaListenerConfigUtils.RETRY_TOPIC_REGISTRY_POST_PROCESSOR_NAME,
+					new RootBeanDefinition(RetryTopicRegistryPostProcessor.class));
 		}
 	}
 

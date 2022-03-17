@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.kafka.listener.ExceptionClassifier;
@@ -47,7 +48,7 @@ import org.springframework.kafka.listener.TimestampedException;
  *
  */
 public class DefaultDestinationTopicResolver extends ExceptionClassifier
-		implements DestinationTopicResolver, ApplicationListener<ContextRefreshedEvent> {
+		implements DestinationTopicResolver, ApplicationContextAware, ApplicationListener<ContextRefreshedEvent> {
 
 	private static final String NO_OPS_SUFFIX = "-noOps";
 
@@ -58,18 +59,31 @@ public class DefaultDestinationTopicResolver extends ExceptionClassifier
 
 	private final Map<String, DestinationTopic> destinationsTopicMap;
 
-	private final Clock clock;
+	private Clock clock;
 
-	private final ApplicationContext applicationContext;
+	private ApplicationContext applicationContext;
 
 	private boolean contextRefreshed;
 
-	public DefaultDestinationTopicResolver(Clock clock, ApplicationContext applicationContext) {
-		this.applicationContext = applicationContext;
-		this.clock = clock;
+	/**
+	 * Constructs a new instance.
+	 * The default {@link Clock} can be overridden via the
+	 * {@link #setClock(Clock)} method.
+	 * @see RetryTopicBootstrapper
+	 */
+	public DefaultDestinationTopicResolver() {
 		this.sourceDestinationsHolderMap = new HashMap<>();
 		this.destinationsTopicMap = new HashMap<>();
 		this.contextRefreshed = false;
+		this.clock = Clock.systemUTC();
+	}
+
+	@SuppressWarnings("deprecated")
+	@Deprecated
+	public DefaultDestinationTopicResolver(Clock clock, ApplicationContext applicationContext) {
+		this();
+		this.applicationContext = applicationContext;
+		this.clock = clock;
 	}
 
 	@Override
@@ -195,6 +209,20 @@ public class DefaultDestinationTopicResolver extends ExceptionClassifier
 	 */
 	public boolean isContextRefreshed() {
 		return this.contextRefreshed;
+	}
+
+	@Override
+	public void setApplicationContext(ApplicationContext applicationContext) {
+		this.applicationContext = applicationContext;
+	}
+
+	/**
+	 * Sets the {@link Clock} instance to be used to determine
+	 * if the retry process is past timeout.
+	 * @param clock the clock instance
+	 */
+	public void setClock(Clock clock) {
+		this.clock = clock;
 	}
 
 	public static class DestinationTopicHolder {

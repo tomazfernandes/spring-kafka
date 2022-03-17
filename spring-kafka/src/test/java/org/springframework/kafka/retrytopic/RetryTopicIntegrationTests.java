@@ -160,6 +160,9 @@ public class RetryTopicIntegrationTests {
 	static class FirstTopicListener {
 
 		@Autowired
+		DefaultDestinationTopicResolver resolver;
+
+		@Autowired
 		CountDownLatchContainer container;
 
 		@KafkaListener(id = "firstTopicId", topics = FIRST_TOPIC, containerFactory = MAIN_TOPIC_CONTAINER_FACTORY,

@@ -61,11 +61,12 @@ class DefaultDestinationTopicResolverTests extends DestinationTopicTests {
 	@BeforeEach
 	public void setup() {
 
-		defaultDestinationTopicContainer = new DefaultDestinationTopicResolver(clock, applicationContext);
+		defaultDestinationTopicContainer = new DefaultDestinationTopicResolver();
 		defaultDestinationTopicContainer.addDestinationTopics(allFirstDestinationsTopics);
 		defaultDestinationTopicContainer.addDestinationTopics(allSecondDestinationTopics);
 		defaultDestinationTopicContainer.addDestinationTopics(allThirdDestinationTopics);
-
+		((DefaultDestinationTopicResolver) defaultDestinationTopicContainer).setClock(this.clock);
+		((DefaultDestinationTopicResolver) defaultDestinationTopicContainer).setApplicationContext(this.applicationContext);
 	}
 
 	@Test

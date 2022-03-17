@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
@@ -100,6 +101,12 @@ class RetryTopicBootstrapperTests {
 		given(this.applicationContext.getBean(
 				RetryTopicNamesProviderFactory.class))
 				.willThrow(NoSuchBeanDefinitionException.class);
+		given(this.applicationContext.getBean(
+				RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME, DefaultDestinationTopicResolver.class))
+				.willReturn(defaultDestinationTopicResolver);
+		given(this.applicationContext.getAutowireCapableBeanFactory())
+				.willReturn(this.beanFactory);
+
 		// when
 		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
 		bootstrapper.bootstrapRetryTopic();
@@ -186,6 +193,11 @@ class RetryTopicBootstrapperTests {
 		given(this.applicationContext
 				.getBean(RetryTopicNamesProviderFactory.class))
 				.willThrow(NoSuchBeanDefinitionException.class);
+		given(this.applicationContext.getBean(
+				RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME, DefaultDestinationTopicResolver.class))
+				.willReturn(defaultDestinationTopicResolver);
+		given(this.applicationContext.getAutowireCapableBeanFactory())
+				.willReturn(this.beanFactory);
 
 		given(kafkaBackOffManagerFactory.create()).willReturn(kafkaConsumerBackOffManager);
 
@@ -210,6 +222,10 @@ class RetryTopicBootstrapperTests {
 				.willReturn(true);
 		given(applicationContext.containsBeanDefinition(RetryTopicInternalBeanNames.KAFKA_CONSUMER_BACKOFF_MANAGER))
 				.willReturn(true);
+		given(applicationContext.getBean(RetryTopicNamesProviderFactory.class))
+				.willReturn(mock(RetryTopicNamesProviderFactory.class));
+		given(applicationContext.getBean(RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME,
+				DefaultDestinationTopicResolver.class)).willReturn(this.defaultDestinationTopicResolver);
 
 		// when
 		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
@@ -238,6 +254,10 @@ class RetryTopicBootstrapperTests {
 		given(this.applicationContext.getBean(
 				RetryTopicNamesProviderFactory.class))
 				.willThrow(NoSuchBeanDefinitionException.class);
+		given(this.applicationContext.getBean(RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME,
+				DefaultDestinationTopicResolver.class)).willReturn(this.defaultDestinationTopicResolver);
+		given(this.applicationContext.getAutowireCapableBeanFactory()).willReturn(this.beanFactory);
+
 		// when
 		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
 		bootstrapper.bootstrapRetryTopic();

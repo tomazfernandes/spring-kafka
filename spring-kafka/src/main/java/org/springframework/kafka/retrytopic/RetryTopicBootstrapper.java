@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.KafkaConsumerTimingAdjuster;
 import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
 import org.springframework.retry.backoff.ThreadWaitSleeper;
+import org.springframework.util.Assert;
 
 /**
  *
@@ -46,25 +47,17 @@ import org.springframework.retry.backoff.ThreadWaitSleeper;
  * @since 2.7
  *
  */
-public class RetryTopicBootstrapper {
+public class RetryTopicBootstrapper implements ApplicationContextAware {
 
-	private final ApplicationContext applicationContext;
+	private ApplicationContext applicationContext;
 
-	private final BeanFactory beanFactory;
+	public RetryTopicBootstrapper() {
+	}
 
+	@SuppressWarnings("deprecated")
+	@Deprecated
 	public RetryTopicBootstrapper(ApplicationContext applicationContext, BeanFactory beanFactory) {
-		if (!ConfigurableApplicationContext.class.isAssignableFrom(applicationContext.getClass()) ||
-				!BeanDefinitionRegistry.class.isAssignableFrom(applicationContext.getClass())) {
-			throw new IllegalStateException(String.format("ApplicationContext must be implement %s and %s interfaces. Provided: %s",
-					ConfigurableApplicationContext.class.getSimpleName(),
-					BeanDefinitionRegistry.class.getSimpleName(),
-					applicationContext.getClass().getSimpleName()));
-		}
-		if (!SingletonBeanRegistry.class.isAssignableFrom(beanFactory.getClass())) {
-			throw new IllegalStateException("BeanFactory must implement " + SingletonBeanRegistry.class +
-					" interface. Provided: " + beanFactory.getClass().getSimpleName());
-		}
-		this.beanFactory = beanFactory;
+		assertApplicationContextAndFactory(applicationContext, beanFactory);
 		this.applicationContext = applicationContext;
 	}
 
@@ -74,7 +67,7 @@ public class RetryTopicBootstrapper {
 		addApplicationListeners();
 	}
 
-	private void registerBeans() {
+	protected void registerBeans() {
 		registerIfNotContains(RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_RESOLVER_NAME,
 				ListenerContainerFactoryResolver.class);
 		registerIfNotContains(RetryTopicInternalBeanNames.DESTINATION_TOPIC_PROCESSOR_NAME,
@@ -101,41 +94,46 @@ public class RetryTopicBootstrapper {
 		}
 	}
 
-	private void registerSingletons() {
+	protected void registerSingletons() {
 		registerSingletonIfNotContains(RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_BEAN_NAME, Clock::systemUTC);
 		registerSingletonIfNotContains(RetryTopicInternalBeanNames.KAFKA_CONSUMER_BACKOFF_MANAGER,
 				this::createKafkaConsumerBackoffManager);
 	}
 
-	private void addApplicationListeners() {
+	protected void addApplicationListeners() {
+		DefaultDestinationTopicResolver resolver = this.applicationContext.getBean(
+				RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME, DefaultDestinationTopicResolver.class);
 		((ConfigurableApplicationContext) this.applicationContext)
-				.addApplicationListener(this.applicationContext.getBean(
-						RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME, DefaultDestinationTopicResolver.class));
+				.addApplicationListener(resolver);
+		Clock clock = this.applicationContext.getBean(RetryTopicInternalBeanNames
+				.INTERNAL_BACKOFF_CLOCK_BEAN_NAME, Clock.class);
+		resolver.setClock(clock);
 	}
 
-	private KafkaConsumerBackoffManager createKafkaConsumerBackoffManager() {
+	protected KafkaConsumerBackoffManager createKafkaConsumerBackoffManager() {
 		KafkaBackOffManagerFactory factory = this.applicationContext
 				.getBean(RetryTopicInternalBeanNames.INTERNAL_KAFKA_CONSUMER_BACKOFF_MANAGER_FACTORY,
 						KafkaBackOffManagerFactory.class);
 		if (ApplicationContextAware.class.isAssignableFrom(factory.getClass())) {
 			((ApplicationContextAware) factory).setApplicationContext(this.applicationContext);
 		}
-		if (PartitionPausingBackOffManagerFactory.class.isAssignableFrom(factory.getClass())) {
-			setupTimingAdjustingBackOffFactory((PartitionPausingBackOffManagerFactory) factory);
-		}
+		setupTimingAdjustingBackOffFactoryIfNecessary(factory);
 		return factory.create();
 	}
 
-	private void setupTimingAdjustingBackOffFactory(PartitionPausingBackOffManagerFactory factory) {
-		if (this.applicationContext.containsBean(RetryTopicInternalBeanNames.BACKOFF_TASK_EXECUTOR)) {
-			factory.setTaskExecutor(this.applicationContext
-					.getBean(RetryTopicInternalBeanNames.BACKOFF_TASK_EXECUTOR, TaskExecutor.class));
-		}
-		if (this.applicationContext.containsBean(
-				RetryTopicInternalBeanNames.INTERNAL_BACKOFF_TIMING_ADJUSTMENT_MANAGER)) {
-			factory.setTimingAdjustmentManager(this.applicationContext
-					.getBean(RetryTopicInternalBeanNames.INTERNAL_BACKOFF_TIMING_ADJUSTMENT_MANAGER,
-						KafkaConsumerTimingAdjuster.class));
+	protected void setupTimingAdjustingBackOffFactoryIfNecessary(KafkaBackOffManagerFactory factory) {
+		if (PartitionPausingBackOffManagerFactory.class.isAssignableFrom(factory.getClass())) {
+			PartitionPausingBackOffManagerFactory managerFactory = (PartitionPausingBackOffManagerFactory) factory;
+			if (this.applicationContext.containsBean(RetryTopicInternalBeanNames.BACKOFF_TASK_EXECUTOR)) {
+				managerFactory.setTaskExecutor(this.applicationContext
+						.getBean(RetryTopicInternalBeanNames.BACKOFF_TASK_EXECUTOR, TaskExecutor.class));
+			}
+			if (this.applicationContext.containsBean(
+					RetryTopicInternalBeanNames.INTERNAL_BACKOFF_TIMING_ADJUSTMENT_MANAGER)) {
+				managerFactory.setTimingAdjustmentManager(this.applicationContext
+						.getBean(RetryTopicInternalBeanNames.INTERNAL_BACKOFF_TIMING_ADJUSTMENT_MANAGER,
+								KafkaConsumerTimingAdjuster.class));
+			}
 		}
 	}
 
@@ -149,7 +147,30 @@ public class RetryTopicBootstrapper {
 
 	private void registerSingletonIfNotContains(String beanName, Supplier<Object> singletonSupplier) {
 		if (!this.applicationContext.containsBeanDefinition(beanName)) {
-			((SingletonBeanRegistry) this.beanFactory).registerSingleton(beanName, singletonSupplier.get());
+			((SingletonBeanRegistry) this.applicationContext.getAutowireCapableBeanFactory())
+					.registerSingleton(beanName, singletonSupplier.get());
+		}
+	}
+
+	@Override
+	public void setApplicationContext(ApplicationContext applicationContext) {
+		assertApplicationContextAndFactory(applicationContext, applicationContext.getAutowireCapableBeanFactory());
+		this.applicationContext = applicationContext;
+	}
+
+	protected void assertApplicationContextAndFactory(ApplicationContext applicationContext, BeanFactory beanFactory) {
+		Assert.notNull(applicationContext, "ApplicationContext cannot be null");
+		Assert.notNull(beanFactory, "BeanFactory cannot be null");
+		if (!ConfigurableApplicationContext.class.isAssignableFrom(applicationContext.getClass()) ||
+				!BeanDefinitionRegistry.class.isAssignableFrom(applicationContext.getClass())) {
+			throw new IllegalStateException(String.format("ApplicationContext must be implement %s and %s interfaces. Provided: %s",
+					ConfigurableApplicationContext.class.getSimpleName(),
+					BeanDefinitionRegistry.class.getSimpleName(),
+					applicationContext.getClass().getSimpleName()));
+		}
+		if (!SingletonBeanRegistry.class.isAssignableFrom(beanFactory.getClass())) {
+			throw new IllegalStateException("BeanFactory must implement " + SingletonBeanRegistry.class +
+					" interface. Provided: " + beanFactory.getClass().getSimpleName());
 		}
 	}
 
