@@ -39,7 +39,7 @@ import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
  * bean is found.
  *
  * @author Tomaz Fernandes
- * @since 2.8.4
+ * @since 2.9.0
  *
  * @see RetryTopicBootstrapper
  * @see RetryTopicConfiguration
@@ -48,20 +48,26 @@ import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
 public class RetryTopicRegistryPostProcessor
 		implements BeanDefinitionRegistryPostProcessor, Ordered, ApplicationContextAware {
 
+	private static final String RETRY_TOPIC_BOOTSTRAPPER_BEAN_NAME = RetryTopicInternalBeanNames
+			.RETRY_TOPIC_BOOTSTRAPPER;
+	static final String RETRY_TOPIC_BOOTSTRAPPED_ATTRIBUTE = "retryTopicBootstrapped";
 	private ApplicationContext applicationContext;
 
 	@Override
 	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
-		if (!registry.containsBeanDefinition(RetryTopicInternalBeanNames
-				.RETRY_TOPIC_BOOTSTRAPPER)) {
+		if (registry.containsBeanDefinition(RetryTopicInternalBeanNames
+				.RETRY_TOPIC_BOOTSTRAPPER) && registry.getBeanDefinition(RetryTopicInternalBeanNames
+				.RETRY_TOPIC_BOOTSTRAPPER).hasAttribute(RETRY_TOPIC_BOOTSTRAPPED_ATTRIBUTE)) {
 
-			Arrays
-					.stream(registry.getBeanDefinitionNames())
-					.map(registry::getBeanDefinition)
-					.filter(this::hasRetryTopicConfiguration)
-					.findFirst()
-					.ifPresent(beanDef -> bootstrapRetryTopic(registry));
+			return;
 		}
+
+		Arrays
+				.stream(registry.getBeanDefinitionNames())
+				.map(registry::getBeanDefinition)
+				.filter(this::hasRetryTopicConfiguration)
+				.findFirst()
+				.ifPresent(beanDef -> bootstrapRetryTopic(registry));
 	}
 
 	private boolean hasRetryTopicConfiguration(BeanDefinition beanDef) {
@@ -72,12 +78,22 @@ public class RetryTopicRegistryPostProcessor
 	}
 
 	private void bootstrapRetryTopic(BeanDefinitionRegistry registry) {
-		registry.registerBeanDefinition(RetryTopicInternalBeanNames
-						.RETRY_TOPIC_BOOTSTRAPPER,
-				new RootBeanDefinition(RetryTopicBootstrapper.class));
-		this.applicationContext.getBean(RetryTopicInternalBeanNames
-						.RETRY_TOPIC_BOOTSTRAPPER, RetryTopicBootstrapper.class)
+		BeanDefinition beanDef = getOrRegisterBeanDefinition(registry);
+		this.applicationContext.getBean(RETRY_TOPIC_BOOTSTRAPPER_BEAN_NAME, RetryTopicBootstrapper.class)
 				.bootstrapRetryTopic();
+		beanDef.setAttribute(RETRY_TOPIC_BOOTSTRAPPED_ATTRIBUTE, true);
+	}
+
+	private BeanDefinition getOrRegisterBeanDefinition(BeanDefinitionRegistry registry) {
+		return registry.containsBeanDefinition(RETRY_TOPIC_BOOTSTRAPPER_BEAN_NAME)
+				? registry.getBeanDefinition(RETRY_TOPIC_BOOTSTRAPPER_BEAN_NAME)
+				: registerNewDefinition(registry);
+	}
+
+	private BeanDefinition registerNewDefinition(BeanDefinitionRegistry registry) {
+		BeanDefinition beanDefinition = new RootBeanDefinition(RetryTopicBootstrapper.class);
+		registry.registerBeanDefinition(RETRY_TOPIC_BOOTSTRAPPER_BEAN_NAME, beanDefinition);
+		return beanDefinition;
 	}
 
 	@Override

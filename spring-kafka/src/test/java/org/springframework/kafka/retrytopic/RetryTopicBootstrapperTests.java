@@ -108,7 +108,8 @@ class RetryTopicBootstrapperTests {
 				.willReturn(this.beanFactory);
 
 		// when
-		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
+		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper();
+		bootstrapper.setApplicationContext(this.applicationContext);
 		bootstrapper.bootstrapRetryTopic();
 
 		// then
@@ -149,9 +150,12 @@ class RetryTopicBootstrapperTests {
 		given(this.applicationContext.getBean(
 				RetryTopicNamesProviderFactory.class))
 				.willReturn(this.retryTopicNamesProviderFactory);
+		given(applicationContext.getAutowireCapableBeanFactory())
+				.willReturn(this.beanFactory);
 
 		// when
-		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
+		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper();
+		bootstrapper.setApplicationContext(this.applicationContext);
 		bootstrapper.bootstrapRetryTopic();
 
 		// then
@@ -202,7 +206,8 @@ class RetryTopicBootstrapperTests {
 		given(kafkaBackOffManagerFactory.create()).willReturn(kafkaConsumerBackOffManager);
 
 		// when
-		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
+		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper();
+		bootstrapper.setApplicationContext(this.applicationContext);
 		bootstrapper.bootstrapRetryTopic();
 
 		// then
@@ -226,9 +231,12 @@ class RetryTopicBootstrapperTests {
 				.willReturn(mock(RetryTopicNamesProviderFactory.class));
 		given(applicationContext.getBean(RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME,
 				DefaultDestinationTopicResolver.class)).willReturn(this.defaultDestinationTopicResolver);
+		given(applicationContext.getAutowireCapableBeanFactory())
+				.willReturn(this.beanFactory);
 
 		// when
-		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
+		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper();
+		bootstrapper.setApplicationContext(this.applicationContext);
 		bootstrapper.bootstrapRetryTopic();
 
 		// then
@@ -259,7 +267,8 @@ class RetryTopicBootstrapperTests {
 		given(this.applicationContext.getAutowireCapableBeanFactory()).willReturn(this.beanFactory);
 
 		// when
-		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper(applicationContext, beanFactory);
+		RetryTopicBootstrapper bootstrapper = new RetryTopicBootstrapper();
+		bootstrapper.setApplicationContext(this.applicationContext);
 		bootstrapper.bootstrapRetryTopic();
 
 		// then

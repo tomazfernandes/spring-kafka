@@ -33,6 +33,7 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.kafka.listener.ExceptionClassifier;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.springframework.kafka.listener.TimestampedException;
+import org.springframework.util.Assert;
 
 
 /**
@@ -78,7 +79,6 @@ public class DefaultDestinationTopicResolver extends ExceptionClassifier
 		this.clock = Clock.systemUTC();
 	}
 
-	@SuppressWarnings("deprecated")
 	@Deprecated
 	public DefaultDestinationTopicResolver(Clock clock, ApplicationContext applicationContext) {
 		this();
@@ -222,6 +222,7 @@ public class DefaultDestinationTopicResolver extends ExceptionClassifier
 	 * @param clock the clock instance
 	 */
 	public void setClock(Clock clock) {
+		Assert.notNull(clock, "Clock should not be null");
 		this.clock = clock;
 	}
 

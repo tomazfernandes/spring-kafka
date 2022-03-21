@@ -20,6 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -38,8 +40,10 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.retrytopic.DestinationTopicResolver;
+import org.springframework.kafka.retrytopic.RetryTopicBootstrapper;
 import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurationBuilder;
+import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.annotation.DirtiesContext;
@@ -47,11 +51,8 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.8.4
+ * @since 2.9.0
  */
-@SpringJUnitConfig
-@DirtiesContext
-@EmbeddedKafka
 class RetryTopicRegistryPostProcessorIntegrationTests {
 
 	@SpringJUnitConfig
@@ -118,6 +119,70 @@ class RetryTopicRegistryPostProcessorIntegrationTests {
 			@Bean
 			PlainListener annotatedListener() {
 				return new PlainListener();
+			}
+
+			@Bean
+			RetryTopicConfiguration retryTopicConfiguration() {
+				return RetryTopicConfigurationBuilder.newInstance().create(kafkaTemplate);
+			}
+		}
+	}
+
+	@SpringJUnitConfig
+	@DirtiesContext
+	@EmbeddedKafka
+	static class UseRegisteredBootstrapperTests {
+
+		@Autowired
+		LatchContainer latchContainer;
+
+		@Test
+		void contextLoads() throws InterruptedException {
+			assertThat(latchContainer.countDownLatch.await(30, TimeUnit.SECONDS)).isTrue();
+		}
+
+		static class PlainListener {
+
+			@Autowired
+			DestinationTopicResolver resolver;
+
+			@KafkaListener(topics = "myTopic")
+			void listen() {
+
+			}
+		}
+
+		static class LatchContainer {
+			CountDownLatch countDownLatch = new CountDownLatch(1);
+		}
+
+		@EnableKafka
+		@Configuration
+		@Import(CommonConfiguration.class)
+		static class TestConfiguration {
+
+			@Autowired
+			KafkaTemplate<?, ?> kafkaTemplate;
+
+			@Bean
+			PlainListener annotatedListener() {
+				return new PlainListener();
+			}
+
+			@Bean
+			LatchContainer latchContainer() {
+				return new LatchContainer();
+			}
+
+			@Bean(name = RetryTopicInternalBeanNames.RETRY_TOPIC_BOOTSTRAPPER)
+			RetryTopicBootstrapper retryTopicBootstrapper(LatchContainer latchContainer) {
+				return new RetryTopicBootstrapper() {
+					@Override
+					protected void registerBeans() {
+						latchContainer.countDownLatch.countDown();
+						super.registerBeans();
+					}
+				};
 			}
 
 			@Bean

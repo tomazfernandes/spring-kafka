@@ -54,7 +54,6 @@ public class RetryTopicBootstrapper implements ApplicationContextAware {
 	public RetryTopicBootstrapper() {
 	}
 
-	@SuppressWarnings("deprecated")
 	@Deprecated
 	public RetryTopicBootstrapper(ApplicationContext applicationContext, BeanFactory beanFactory) {
 		assertApplicationContextAndFactory(applicationContext, beanFactory);
