@@ -154,8 +154,7 @@ class FailedRecordTracker implements RecoveryStrategy {
 			@Nullable Consumer<?, ?> consumer) throws InterruptedException {
 
 		if (this.noRetries) {
-			attemptRecovery(record, exception, container, consumer);
-			return true;
+			return attemptRecovery(record, exception, container, consumer);
 		}
 
 		Map<TopicPartition, FailedRecord> map = this.failures.get();
