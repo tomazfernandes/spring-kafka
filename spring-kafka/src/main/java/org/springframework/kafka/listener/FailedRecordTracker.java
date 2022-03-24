@@ -66,6 +66,7 @@ class FailedRecordTracker implements RecoveryStrategy {
 			LogAccessor logger) {
 
 		Assert.notNull(backOff, "'backOff' cannot be null");
+
 		if (recoverer == null) {
 			this.recoverer = (rec, consumer, thr) -> {
 				Map<TopicPartition, FailedRecord> map = this.failures.get();
@@ -137,10 +138,6 @@ class FailedRecordTracker implements RecoveryStrategy {
 		this.retryListeners.addAll(Arrays.asList(listeners));
 	}
 
-	List<RetryListener> getRetryListeners() {
-		return this.retryListeners;
-	}
-
 	boolean skip(ConsumerRecord<?, ?> record, Exception exception) {
 		try {
 			return recovered(record, exception, null, null);
@@ -157,9 +154,10 @@ class FailedRecordTracker implements RecoveryStrategy {
 			@Nullable Consumer<?, ?> consumer) throws InterruptedException {
 
 		if (this.noRetries) {
-			attemptRecovery(record, exception, null, consumer);
+			attemptRecovery(record, exception, container, consumer);
 			return true;
 		}
+
 		Map<TopicPartition, FailedRecord> map = this.failures.get();
 		if (map == null) {
 			this.failures.set(new HashMap<>());
@@ -180,7 +178,15 @@ class FailedRecordTracker implements RecoveryStrategy {
 			return false;
 		}
 		else {
-			attemptRecovery(record, exception, topicPartition, consumer);
+			try {
+				attemptRecovery(record, exception, container, consumer);
+			}
+			catch (RuntimeException re) {
+				if (this.resetStateOnRecoveryFailure) {
+					this.failures.get().remove(topicPartition);
+				}
+				throw re;
+			}
 			map.remove(topicPartition);
 			if (map.isEmpty()) {
 				this.failures.remove();
@@ -221,28 +227,23 @@ class FailedRecordTracker implements RecoveryStrategy {
 		return backOffToUse != null ? backOffToUse : this.backOff;
 	}
 
-	private void attemptRecovery(ConsumerRecord<?, ?> record, Exception exception, @Nullable TopicPartition tp,
-			Consumer<?, ?> consumer) {
+	public boolean attemptRecovery(ConsumerRecord<?, ?> record, Exception exception,
+						@Nullable MessageListenerContainer container,
+						@Nullable Consumer<?, ?> consumer) {
 
 		try {
 			this.recoverer.accept(record, consumer, exception);
 			this.retryListeners.forEach(rl -> rl.recovered(record, exception));
+			return true;
 		}
 		catch (RuntimeException e) {
 			this.retryListeners.forEach(rl -> rl.recoveryFailed(record, exception, e));
-			if (tp != null && this.resetStateOnRecoveryFailure) {
-				this.failures.get().remove(tp);
-			}
 			throw e;
 		}
 	}
 
 	void clearThreadState() {
 		this.failures.remove();
-	}
-
-	ConsumerAwareRecordRecoverer getRecoverer() {
-		return this.recoverer;
 	}
 
 	/**

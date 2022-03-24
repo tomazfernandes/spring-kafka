@@ -19,14 +19,12 @@ package org.springframework.kafka.listener;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
 
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import org.springframework.core.log.LogAccessor;
-import org.springframework.kafka.support.KafkaUtils;
 import org.springframework.kafka.support.TopicPartitionOffset;
 import org.springframework.lang.Nullable;
 import org.springframework.util.backoff.BackOff;
@@ -39,10 +37,6 @@ import org.springframework.util.backoff.BackOff;
  *
  */
 public abstract class FailedRecordProcessor extends ExceptionClassifier implements DeliveryAttemptAware {
-
-	private static final BiPredicate<ConsumerRecord<?, ?>, Exception> ALWAYS_SKIP_PREDICATE = (r, e) -> true;
-
-	private static final BiPredicate<ConsumerRecord<?, ?>, Exception> NEVER_SKIP_PREDICATE = (r, e) -> false;
 
 	protected final LogAccessor logger = new LogAccessor(LogFactory.getLog(getClass())); // NOSONAR
 
@@ -134,33 +128,20 @@ public abstract class FailedRecordProcessor extends ExceptionClassifier implemen
 	/**
 	 * Return a {@link RecoveryStrategy} to call to determine whether the first record in the
 	 * list should be skipped.
-	 * @param records the records.
-	 * @param recoveryConsumer the consumer.
 	 * @param thrownException the exception.
 	 * @return the {@link RecoveryStrategy}.
 	 * @since 2.8.4
 	 */
+	protected RecoveryStrategy getRecoveryStrategy(Exception thrownException) {
+		return getClassifier().classify(thrownException)
+				? this.failureTracker::recovered
+				: this.failureTracker::attemptRecovery;
+	}
+
+	@Deprecated
 	protected RecoveryStrategy getRecoveryStrategy(List<ConsumerRecord<?, ?>> records,
 												@Nullable Consumer<?, ?> recoveryConsumer, Exception thrownException) {
-		if (getClassifier().classify(thrownException)) {
-			return this.failureTracker::recovered;
-		}
-		else {
-			try {
-				this.failureTracker.getRecoverer().accept(records.get(0), recoveryConsumer, thrownException);
-				this.failureTracker.getRetryListeners().forEach(rl -> rl.recovered(records.get(0), thrownException));
-			}
-			catch (Exception ex) {
-				if (records.size() > 0) {
-					this.logger.error(ex, () -> "Recovery of record ("
-							+ KafkaUtils.format(records.get(0)) + ") failed");
-					this.failureTracker.getRetryListeners().forEach(rl ->
-							rl.recoveryFailed(records.get(0), thrownException, ex));
-				}
-				return (rec, excep, cont, consumer) -> NEVER_SKIP_PREDICATE.test(rec, excep);
-			}
-			return (rec, excep, cont, consumer) -> ALWAYS_SKIP_PREDICATE.test(rec, excep);
-		}
+		return getRecoveryStrategy(thrownException);
 	}
 
 	public void clearThreadState() {
