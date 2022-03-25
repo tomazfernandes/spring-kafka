@@ -234,6 +234,8 @@ public class ListenerContainerFactoryConfigurer {
 
 	protected CommonErrorHandler createErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer,
 												Configuration configuration) {
+		Assert.isTrue(!providedBackOffWithoutExceptions(),
+				"You must set at least one retryable exception to use blocking retries.");
 		DefaultErrorHandler errorHandler = createDefaultErrorHandlerInstance(deadLetterPublishingRecoverer);
 		errorHandler.defaultFalse();
 		errorHandler.setCommitRecovered(true);
@@ -243,6 +245,10 @@ public class ListenerContainerFactoryConfigurer {
 		}
 		this.errorHandlerCustomizer.accept(errorHandler);
 		return errorHandler;
+	}
+
+	private boolean providedBackOffWithoutExceptions() {
+		return this.providedBlockingBackOff != null && this.blockingExceptionTypes == null;
 	}
 
 	protected DefaultErrorHandler createDefaultErrorHandlerInstance(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {

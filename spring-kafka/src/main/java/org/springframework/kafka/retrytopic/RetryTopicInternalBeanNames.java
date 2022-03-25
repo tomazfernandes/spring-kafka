@@ -112,4 +112,9 @@ public abstract class RetryTopicInternalBeanNames {
 	 */
 	public static final String RETRY_TOPIC_CONFIGURER = "internalRetryTopicConfigurer";
 
+	/**
+	 * {@link RetryTopicComponents} bean name.
+	 */
+	public static final String RETRY_TOPIC_COMPONENTS = "internalRetryTopicComponents";
+
 }

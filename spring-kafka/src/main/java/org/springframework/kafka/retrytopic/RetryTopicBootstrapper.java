@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,13 @@
 package org.springframework.kafka.retrytopic;
 
 import java.time.Clock;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
+import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.config.SingletonBeanRegistry;
@@ -27,12 +32,14 @@ import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.log.LogAccessor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.listener.KafkaBackOffManagerFactory;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.KafkaConsumerTimingAdjuster;
 import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
 import org.springframework.retry.backoff.ThreadWaitSleeper;
+import org.springframework.util.Assert;
 
 /**
  *
@@ -48,9 +55,27 @@ import org.springframework.retry.backoff.ThreadWaitSleeper;
  */
 public class RetryTopicBootstrapper {
 
+	private static final LogAccessor logger = new LogAccessor(
+			LogFactory.getLog(RetryTopicBootstrapper.class));
+
 	private final ApplicationContext applicationContext;
 
 	private final BeanFactory beanFactory;
+
+	private static final List<Class<?>> componentsToRegister;
+
+	static {
+		componentsToRegister = Arrays.asList(ListenerContainerFactoryResolver.class,
+				DefaultDestinationTopicProcessor.class,
+				ListenerContainerFactoryConfigurer.class,
+				DeadLetterPublishingRecovererFactory.class,
+				RetryTopicConfigurer.class,
+				DefaultDestinationTopicResolver.class,
+				ThreadWaitSleeper.class,
+				PartitionPausingBackOffManagerFactory.class,
+				RetryTopicComponents.class
+		);
+	}
 
 	public RetryTopicBootstrapper(ApplicationContext applicationContext, BeanFactory beanFactory) {
 		if (!ConfigurableApplicationContext.class.isAssignableFrom(applicationContext.getClass()) ||
@@ -72,23 +97,12 @@ public class RetryTopicBootstrapper {
 		registerBeans();
 		registerSingletons();
 		addApplicationListeners();
+		configureComponents();
 	}
 
 	private void registerBeans() {
-		registerIfNotContains(RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_RESOLVER_NAME,
-				ListenerContainerFactoryResolver.class);
-		registerIfNotContains(RetryTopicInternalBeanNames.DESTINATION_TOPIC_PROCESSOR_NAME,
-				DefaultDestinationTopicProcessor.class);
-		registerIfNotContains(RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_CONFIGURER_NAME,
-				ListenerContainerFactoryConfigurer.class);
-		registerIfNotContains(RetryTopicInternalBeanNames.DEAD_LETTER_PUBLISHING_RECOVERER_FACTORY_BEAN_NAME,
-				DeadLetterPublishingRecovererFactory.class);
-		registerIfNotContains(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER, RetryTopicConfigurer.class);
-		registerIfNotContains(RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME,
-				DefaultDestinationTopicResolver.class);
-		registerIfNotContains(RetryTopicInternalBeanNames.BACKOFF_SLEEPER_BEAN_NAME, ThreadWaitSleeper.class);
-		registerIfNotContains(RetryTopicInternalBeanNames.INTERNAL_KAFKA_CONSUMER_BACKOFF_MANAGER_FACTORY,
-				PartitionPausingBackOffManagerFactory.class);
+		componentsToRegister
+				.forEach(this::registerIfNotContains);
 
 		// Register a RetryTopicNamesProviderFactory implementation only if none is already present in the context
 		try {
@@ -139,7 +153,28 @@ public class RetryTopicBootstrapper {
 		}
 	}
 
-	private void registerIfNotContains(String beanName, Class<?> beanClass) {
+	@SuppressWarnings("unchecked")
+	private void configureComponents() {
+		Stream.concat(this.applicationContext.getBeansOfType(RetryTopicComponentConfigurer.class).values().stream(),
+						this.applicationContext.getBeansOfType(RetryTopicCompositeConfigurer.class)
+						.values().stream().map(RetryTopicCompositeConfigurer::getConfigurers)
+						.flatMap(Collection::stream))
+				.forEach(this::doConfigureComponent);
+	}
+
+	private <T> void doConfigureComponent(RetryTopicComponentConfigurer<T> configurer) {
+		Class<T> componentClass = configurer.configures();
+		String beanName = RetryTopicComponents.getComponentBeanName(componentClass);
+		Assert.notNull(beanName, "Component " + componentClass.getName()
+				+ " not found for configurer " + configurer);
+		T componentInstance = this.applicationContext.getBean(beanName, componentClass);
+		logger.debug(() -> String.format("Applying configurer %s to component instance %s",
+				configurer, componentInstance));
+		configurer.configure(componentInstance);
+	}
+
+	private void registerIfNotContains(Class<?> beanClass) {
+		String beanName = RetryTopicComponents.getComponentBeanName(beanClass);
 		BeanDefinitionRegistry registry = (BeanDefinitionRegistry) this.applicationContext;
 		if (!registry.containsBeanDefinition(beanName)) {
 			registry.registerBeanDefinition(beanName,
