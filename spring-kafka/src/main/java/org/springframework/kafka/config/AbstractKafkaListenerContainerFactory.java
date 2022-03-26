@@ -58,6 +58,7 @@ import org.springframework.util.Assert;
  * @author Stephane Nicoll
  * @author Gary Russell
  * @author Artem Bilan
+ * @author Tomaz Fernandes
  *
  * @see AbstractMessageListenerContainer
  */
@@ -388,13 +389,18 @@ public abstract class AbstractKafkaListenerContainerFactory<C extends AbstractMe
 	protected void initializeContainer(C instance, KafkaListenerEndpoint endpoint) {
 		ContainerProperties properties = instance.getContainerProperties();
 		BeanUtils.copyProperties(this.containerProperties, properties, "topics", "topicPartitions", "topicPattern",
-				"messageListener", "ackCount", "ackTime", "subBatchPerPartition", "kafkaConsumerProperties");
+				"messageListener", "ackCount", "ackTime", "subBatchPerPartition", "kafkaConsumerProperties",
+				"idlePartitionEventInterval", "pollTimeout");
 		JavaUtils.INSTANCE
 				.acceptIfNotNull(this.afterRollbackProcessor, instance::setAfterRollbackProcessor)
 				.acceptIfCondition(this.containerProperties.getAckCount() > 0, this.containerProperties.getAckCount(),
 						properties::setAckCount)
 				.acceptIfCondition(this.containerProperties.getAckTime() > 0, this.containerProperties.getAckTime(),
 						properties::setAckTime)
+				.acceptIfCondition(this.containerProperties.getPollTimeout() != ContainerProperties.DEFAULT_POLL_TIMEOUT,
+						this.containerProperties.getPollTimeout(), properties::setPollTimeout)
+				.acceptIfNotNull(this.containerProperties.getIdlePartitionEventInterval(),
+						properties::setIdlePartitionEventInterval)
 				.acceptIfNotNull(this.containerProperties.getSubBatchPerPartition(),
 						properties::setSubBatchPerPartition)
 				.acceptIfNotNull(this.errorHandler, instance::setGenericErrorHandler)

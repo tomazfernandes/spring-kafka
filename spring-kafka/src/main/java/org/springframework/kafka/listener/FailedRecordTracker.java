@@ -157,6 +157,9 @@ class FailedRecordTracker implements RecoveryStrategy {
 			@Nullable MessageListenerContainer container,
 			@Nullable Consumer<?, ?> consumer) throws InterruptedException {
 
+		if (SeekUtils.isBackoffException(exception)) {
+			return false;
+		}
 		if (this.noRetries) {
 			attemptRecovery(record, exception, null, consumer);
 			return true;

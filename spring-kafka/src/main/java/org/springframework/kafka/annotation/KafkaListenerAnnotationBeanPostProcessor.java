@@ -188,6 +188,8 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 
 	private AnnotationEnhancer enhancer;
 
+	private DelayedTopicPropertiesProvider delayedTopicContextProvider;
+
 	@Override
 	public int getOrder() {
 		return LOWEST_PRECEDENCE;
@@ -257,6 +259,10 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 			this.expressionContext = new BeanExpressionContext((ConfigurableListableBeanFactory) beanFactory,
 					this.listenerScope);
 		}
+	}
+
+	protected DelayedTopicPropertiesProvider createDelayedTopicPropertiesProvider() {
+		return new DelayedTopicPropertiesProvider(this.applicationContext, this.resolver, this.expressionContext);
 	}
 
 	/**
@@ -345,6 +351,9 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 
 	@Override
 	public Object postProcessAfterInitialization(final Object bean, final String beanName) throws BeansException {
+		if (this.delayedTopicContextProvider == null) {
+			this.delayedTopicContextProvider = createDelayedTopicPropertiesProvider();
+		}
 		if (!this.nonAnnotatedClasses.contains(bean.getClass())) {
 			Class<?> targetClass = AopUtils.getTargetClass(bean);
 			Collection<KafkaListener> classLevelListeners = findListenerAnnotations(targetClass);
@@ -470,8 +479,11 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 		if (!processMainAndRetryListeners(kafkaListener, bean, beanName, methodToUse, endpoint, topics, tps)) {
 			processListener(endpoint, kafkaListener, bean, beanName, topics, tps);
 		}
+
 		this.listenerScope.removeListener(beanRef);
 	}
+
+
 
 	private boolean processMainAndRetryListeners(KafkaListener kafkaListener, Object bean, String beanName,
 			Method methodToUse, MethodKafkaListenerEndpoint<K, V> endpoint, String[] topics,
@@ -570,6 +582,9 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 								Object bean, String beanName, String[] topics, TopicPartitionOffset[] tps) {
 
 		processKafkaListenerAnnotation(endpoint, kafkaListener, bean, topics, tps);
+
+		endpoint.setDelayedTopicContext(this.delayedTopicContextProvider
+				.getContextFor(endpoint));
 
 		String containerFactory = resolve(kafkaListener.containerFactory());
 		KafkaListenerContainerFactory<?> listenerContainerFactory = resolveContainerFactory(kafkaListener,

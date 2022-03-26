@@ -23,6 +23,7 @@ package org.springframework.kafka.support;
  * @author Marius Bogoevici
  * @author Gary Russell
  * @author Biju Kunjummen
+ * @author Tomaz Fernandes
  */
 public abstract class KafkaHeaders {
 
@@ -327,5 +328,12 @@ public abstract class KafkaHeaders {
 	 * @since 2.8.4
 	 */
 	public static final String LISTENER_INFO = PREFIX + "listenerInfo";
+
+	/**
+	 * The time after which the record should be consumed.
+	 * Note that it's up to the consumer to respect the timestamp.
+	 * @since 2.9
+	 */
+	public static final String DUE_TIMESTAMP = PREFIX + "due-timestamp";
 
 }

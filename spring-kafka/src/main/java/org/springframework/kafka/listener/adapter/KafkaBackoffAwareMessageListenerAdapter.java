@@ -32,6 +32,7 @@ import org.springframework.kafka.listener.MessageListener;
 import org.springframework.kafka.listener.TimestampedException;
 import org.springframework.kafka.retrytopic.RetryTopicHeaders;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.lang.Nullable;
 
 /**
@@ -80,6 +81,37 @@ public class KafkaBackoffAwareMessageListenerAdapter<K, V>
 		this.kafkaConsumerBackoffManager = kafkaConsumerBackoffManager;
 		this.backoffTimestampHeader = backoffTimestampHeader;
 		this.clock = clock;
+	}
+
+	/**
+	 * The configuration for this listener adapter.
+	 *
+	 * @param delegate the MessageListener instance that will handle the messages.
+	 * @param kafkaConsumerBackoffManager the manager that will handle the back off.
+	 * @param listenerId the id of the listener container associated to this adapter.
+	 * @param backoffTimestampHeader the header name that will be looked up in the
+	 * 			incoming record to acquire the timestamp.
+	 * @since 2.7
+	 */
+	public KafkaBackoffAwareMessageListenerAdapter(MessageListener<K, V> delegate,
+												KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
+												String listenerId,
+												String backoffTimestampHeader) {
+		this(delegate, kafkaConsumerBackoffManager, listenerId, backoffTimestampHeader, Clock.systemUTC());
+	}
+
+	/**
+	 * The configuration for this listener adapter.
+	 *
+	 * @param delegate the MessageListener instance that will handle the messages.
+	 * @param kafkaConsumerBackoffManager the manager that will handle the back off.
+	 * @param listenerId the id of the listener container associated to this adapter.
+	 * @since 2.9
+	 */
+	public KafkaBackoffAwareMessageListenerAdapter(MessageListener<K, V> delegate,
+												KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
+												String listenerId) {
+		this(delegate, kafkaConsumerBackoffManager, listenerId, KafkaHeaders.DUE_TIMESTAMP, Clock.systemUTC());
 	}
 
 	public KafkaBackoffAwareMessageListenerAdapter(MessageListener<K, V> adapter,

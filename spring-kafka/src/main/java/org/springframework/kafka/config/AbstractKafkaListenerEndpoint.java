@@ -37,11 +37,14 @@ import org.springframework.core.log.LogAccessor;
 import org.springframework.expression.BeanResolver;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.BatchMessageListener;
+import org.springframework.kafka.listener.DelayedTopicContext;
 import org.springframework.kafka.listener.MessageListener;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.listener.adapter.BatchToRecordAdapter;
+import org.springframework.kafka.listener.adapter.DelayedMessageListenerAdapter;
 import org.springframework.kafka.listener.adapter.FilteringBatchMessageListenerAdapter;
 import org.springframework.kafka.listener.adapter.FilteringMessageListenerAdapter;
+import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
 import org.springframework.kafka.listener.adapter.MessagingMessageListenerAdapter;
 import org.springframework.kafka.listener.adapter.RecordFilterStrategy;
 import org.springframework.kafka.listener.adapter.ReplyHeadersConfigurer;
@@ -51,6 +54,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.retry.RecoveryCallback;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * Base model for a Kafka listener endpoint.
@@ -61,6 +65,7 @@ import org.springframework.util.ObjectUtils;
  * @author Stephane Nicoll
  * @author Gary Russell
  * @author Artem Bilan
+ * @author Tomaz Fernandes
  *
  * @see MethodKafkaListenerEndpoint
  */
@@ -116,6 +121,8 @@ public abstract class AbstractKafkaListenerEndpoint<K, V>
 	private BatchToRecordAdapter<K, V> batchToRecordAdapter;
 
 	private byte[] listenerInfo;
+
+	private DelayedTopicContext delayedTopicContext;
 
 	@Override
 	public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
@@ -445,6 +452,13 @@ public abstract class AbstractKafkaListenerEndpoint<K, V>
 		this.batchToRecordAdapter = batchToRecordAdapter;
 	}
 
+	/**
+	 * Set a {@link DelayedTopicContext}.
+	 * @param delayedTopicContext the context.
+	 */
+	public void setDelayedTopicContext(@Nullable DelayedTopicContext delayedTopicContext) {
+		this.delayedTopicContext = delayedTopicContext;
+	}
 
 	@Override
 	public void afterPropertiesSet() {
@@ -509,7 +523,45 @@ public abstract class AbstractKafkaListenerEndpoint<K, V>
 						this.recordFilterStrategy, this.ackDiscarded);
 			}
 		}
+		if (this.delayedTopicContext != null) {
+			String listenerId = container.getListenerId();
+			Assert.isTrue(StringUtils.hasText(listenerId),
+					"listenerId cannot be empty or null to configure delayed topics");
+			if (DelaySource.CONSUMER.equals(this.delayedTopicContext.getDelaySource())
+					|| DelaySource.BOTH.equals(this.delayedTopicContext.getDelaySource())) {
+				messageListener = decorateWithDelayedListenerAdapter(container.getListenerId(),
+						(MessageListener<K, V>) messageListener);
+			}
+			if (DelaySource.PRODUCER.equals(this.delayedTopicContext.getDelaySource())
+					|| DelaySource.BOTH.equals(this.delayedTopicContext.getDelaySource())) {
+				messageListener =
+						decorateWithKafkaBackOffAwareListenerAdapter(container.getListenerId(),
+								(MessageListener<K, V>) messageListener);
+			}
+
+			long precisionValue = this.delayedTopicContext.getDelayPrecision().getDelay();
+			this.logger.debug(() -> "Setting idlePartitionEventInterval and pollTimeout values to "
+					+ precisionValue + "ms (unless overriden)");
+			container.getContainerProperties()
+					.setIdlePartitionEventInterval(precisionValue);
+			container.getContainerProperties()
+					.setPollTimeout(precisionValue);
+		}
 		container.setupMessageListener(messageListener);
+	}
+
+	private KafkaBackoffAwareMessageListenerAdapter<K, V> decorateWithKafkaBackOffAwareListenerAdapter(String listenerId, MessageListener<K, V> messageListener) {
+		return new KafkaBackoffAwareMessageListenerAdapter<>(messageListener,
+				this.delayedTopicContext.getBackoffManager(), listenerId,
+				this.delayedTopicContext.getProducerDueTimestampHeader());
+	}
+
+	private DelayedMessageListenerAdapter<K, V> decorateWithDelayedListenerAdapter(String listenerId, MessageListener<K, V> messageListener) {
+		DelayedMessageListenerAdapter<K, V> listenerAdapter =
+				new DelayedMessageListenerAdapter<>(messageListener,
+						this.delayedTopicContext.getBackoffManager(), listenerId);
+		listenerAdapter.setDelay(this.delayedTopicContext.getDelay());
+		return listenerAdapter;
 	}
 
 	/**
