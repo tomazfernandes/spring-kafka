@@ -29,11 +29,15 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerConfigUtils;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -51,7 +55,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 /**
  * @author Tomaz Fernandes
- * @since 2.9.0
+ * @since 2.9
  */
 class RetryTopicRegistryPostProcessorIntegrationTests {
 
@@ -131,6 +135,65 @@ class RetryTopicRegistryPostProcessorIntegrationTests {
 	@SpringJUnitConfig
 	@DirtiesContext
 	@EmbeddedKafka
+	static class DisabledEarlyConfigurationTests {
+
+		@Autowired
+		PlainListener plainListener;
+
+		@Autowired
+		ApplicationContext context;
+
+		@Test
+		void contextLoads() {
+			assertThat(plainListener.resolver).isNull();
+			assertThat(context.getBean(RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME,
+					DestinationTopicResolver.class)).isNotNull();
+		}
+
+		static class PlainListener {
+
+			@Autowired(required = false)
+			DestinationTopicResolver resolver;
+
+			@KafkaListener(topics = "myTopic")
+			void listen() {
+
+			}
+		}
+
+		@EnableKafka
+		@Configuration
+		@Import(CommonConfiguration.class)
+		static class TestConfiguration {
+
+			@Autowired
+			KafkaTemplate<?, ?> kafkaTemplate;
+
+			@Bean
+			PlainListener annotatedListener() {
+				return new PlainListener();
+			}
+
+			@Bean
+			RetryTopicConfiguration retryTopicConfiguration() {
+				return RetryTopicConfigurationBuilder.newInstance().create(kafkaTemplate);
+			}
+
+			@Bean(name = KafkaListenerConfigUtils.RETRY_TOPIC_REGISTRY_POST_PROCESSOR_NAME)
+			RetryTopicRegistryPostProcessor retryTopicRegistryPostProcessor() {
+				return new RetryTopicRegistryPostProcessor() {
+					@Override
+					public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+						// No-ops
+					}
+				};
+			}
+		}
+	}
+
+	@SpringJUnitConfig
+	@DirtiesContext
+	@EmbeddedKafka
 	static class UseRegisteredBootstrapperTests {
 
 		@Autowired
@@ -177,10 +240,11 @@ class RetryTopicRegistryPostProcessorIntegrationTests {
 			@Bean(name = RetryTopicInternalBeanNames.RETRY_TOPIC_BOOTSTRAPPER)
 			RetryTopicBootstrapper retryTopicBootstrapper(LatchContainer latchContainer) {
 				return new RetryTopicBootstrapper() {
+
 					@Override
-					protected void registerBeans() {
+					public void bootstrapRetryTopic() {
+						super.bootstrapRetryTopic();
 						latchContainer.countDownLatch.countDown();
-						super.registerBeans();
 					}
 				};
 			}
@@ -228,7 +292,6 @@ class RetryTopicRegistryPostProcessorIntegrationTests {
 		}
 	}
 
-	@EnableKafka
 	@Configuration
 	static class CommonConfiguration {
 

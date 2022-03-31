@@ -19,6 +19,7 @@ package org.springframework.kafka.retrytopic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.mockito.BDDMockito.given;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -65,7 +66,8 @@ class DefaultDestinationTopicResolverTests extends DestinationTopicTests {
 		defaultDestinationTopicContainer.addDestinationTopics(allFirstDestinationsTopics);
 		defaultDestinationTopicContainer.addDestinationTopics(allSecondDestinationTopics);
 		defaultDestinationTopicContainer.addDestinationTopics(allThirdDestinationTopics);
-		((DefaultDestinationTopicResolver) defaultDestinationTopicContainer).setClock(this.clock);
+		given(this.applicationContext.getBean(RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_BEAN_NAME, Clock.class))
+				.willReturn(this.clock);
 		((DefaultDestinationTopicResolver) defaultDestinationTopicContainer).setApplicationContext(this.applicationContext);
 	}
 

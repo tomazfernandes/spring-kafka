@@ -31,8 +31,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.beans.factory.config.SingletonBeanRegistry;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
@@ -60,7 +60,7 @@ class RetryTopicBootstrapperTests {
 	private DefaultListableBeanFactory beanFactory;
 
 	@Mock
-	private BeanFactory wrongBeanFactory;
+	private AutowireCapableBeanFactory wrongBeanFactory;
 
 	@Mock
 	private DefaultDestinationTopicResolver defaultDestinationTopicResolver;
@@ -76,14 +76,16 @@ class RetryTopicBootstrapperTests {
 
 	@Test
 	void shouldThrowIfACDoesntImplementInterfaces() {
+		given(wrongApplicationContext.getAutowireCapableBeanFactory()).willReturn(beanFactory);
 		assertThatIllegalStateException()
-				.isThrownBy(() -> new RetryTopicBootstrapper(wrongApplicationContext, beanFactory));
+				.isThrownBy(() -> new RetryTopicBootstrapper().setApplicationContext(wrongApplicationContext));
 	}
 
 	@Test
 	void shouldThrowIfBFDoesntImplementInterfaces() {
+		given(applicationContext.getAutowireCapableBeanFactory()).willReturn(wrongBeanFactory);
 		assertThatIllegalStateException()
-				.isThrownBy(() -> new RetryTopicBootstrapper(applicationContext, wrongBeanFactory));
+				.isThrownBy(() -> new RetryTopicBootstrapper().setApplicationContext(applicationContext));
 	}
 
 	@Test

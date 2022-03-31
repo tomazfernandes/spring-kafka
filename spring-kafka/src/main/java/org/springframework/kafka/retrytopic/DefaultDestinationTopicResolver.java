@@ -33,7 +33,6 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.kafka.listener.ExceptionClassifier;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.springframework.kafka.listener.TimestampedException;
-import org.springframework.util.Assert;
 
 
 /**
@@ -66,17 +65,10 @@ public class DefaultDestinationTopicResolver extends ExceptionClassifier
 
 	private boolean contextRefreshed;
 
-	/**
-	 * Constructs a new instance.
-	 * The default {@link Clock} can be overridden via the
-	 * {@link #setClock(Clock)} method.
-	 * @see RetryTopicBootstrapper
-	 */
 	public DefaultDestinationTopicResolver() {
 		this.sourceDestinationsHolderMap = new HashMap<>();
 		this.destinationsTopicMap = new HashMap<>();
 		this.contextRefreshed = false;
-		this.clock = Clock.systemUTC();
 	}
 
 	@Deprecated
@@ -214,16 +206,7 @@ public class DefaultDestinationTopicResolver extends ExceptionClassifier
 	@Override
 	public void setApplicationContext(ApplicationContext applicationContext) {
 		this.applicationContext = applicationContext;
-	}
-
-	/**
-	 * Sets the {@link Clock} instance to be used to determine
-	 * if the retry process is past timeout.
-	 * @param clock the clock instance
-	 */
-	public void setClock(Clock clock) {
-		Assert.notNull(clock, "Clock should not be null");
-		this.clock = clock;
+		this.clock = applicationContext.getBean(RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_BEAN_NAME, Clock.class);
 	}
 
 	public static class DestinationTopicHolder {
