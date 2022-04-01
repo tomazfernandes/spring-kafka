@@ -27,6 +27,9 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.KafkaException;
@@ -63,7 +66,7 @@ import org.springframework.util.backoff.BackOff;
  * @since 2.7
  *
  */
-public class ListenerContainerFactoryConfigurer {
+public class ListenerContainerFactoryConfigurer implements BeanFactoryAware {
 
 	private static final Set<ConcurrentKafkaListenerContainerFactory<?, ?>> CONFIGURED_FACTORIES_CACHE;
 
@@ -92,12 +95,16 @@ public class ListenerContainerFactoryConfigurer {
 	private Consumer<CommonErrorHandler> errorHandlerCustomizer = errorHandler -> {
 	};
 
-	private final DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory;
+	private DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory;
 
-	private final KafkaConsumerBackoffManager kafkaConsumerBackoffManager;
+	private KafkaConsumerBackoffManager kafkaConsumerBackoffManager;
 
-	private final Clock clock;
+	private Clock clock;
 
+	public ListenerContainerFactoryConfigurer() {
+	}
+
+	@Deprecated
 	public ListenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
 									DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
 									@Qualifier(RetryTopicInternalBeanNames
@@ -316,6 +323,18 @@ public class ListenerContainerFactoryConfigurer {
 				() -> String.format("The provided class %s is not assignable from %s",
 						obj.getClass().getSimpleName(), clazz.getSimpleName()));
 		return (T) obj;
+	}
+
+	@Override
+	public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+		this.kafkaConsumerBackoffManager =
+				beanFactory.getBean(RetryTopicInternalBeanNames.KAFKA_CONSUMER_BACKOFF_MANAGER,
+						KafkaConsumerBackoffManager.class);
+		this.deadLetterPublishingRecovererFactory =
+				beanFactory.getBean(RetryTopicInternalBeanNames.DEAD_LETTER_PUBLISHING_RECOVERER_FACTORY_BEAN_NAME,
+					DeadLetterPublishingRecovererFactory.class);
+		this.clock = beanFactory.getBean(RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_BEAN_NAME,
+				Clock.class);
 	}
 
 	private class RetryTopicListenerContainerFactoryDecorator

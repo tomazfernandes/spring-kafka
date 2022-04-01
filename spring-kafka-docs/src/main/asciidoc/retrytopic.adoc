@@ -449,11 +449,8 @@ Optionally, you can provide your own back off policy.
 [source, java]
 ----
 @Bean(name = RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_CONFIGURER_NAME)
-public ListenerContainerFactoryConfigurer lcfc(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
-                                               DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
-                                               @Qualifier(RetryTopicInternalBeanNames
-                                                       .INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
-    ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory, clock);
+public ListenerContainerFactoryConfigurer lcfc() {
+    ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer();
     lcfc.setBlockingRetryableExceptions(MyBlockingRetryException.class, MyOtherBlockingRetryException.class);
     lcfc.setBlockingRetriesBackOff(new FixedBackOff(500, 5)); // Optional
     return lcfc;
@@ -478,11 +475,8 @@ Here's an example with both configurations working together:
 [source, java]
 ----
 @Bean(name = RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_CONFIGURER_NAME)
-public ListenerContainerFactoryConfigurer lcfc(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
-                                            DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
-                                            @Qualifier(RetryTopicInternalBeanNames
-                                                    .INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
-    ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory, clock);
+public ListenerContainerFactoryConfigurer lcfc() {
+    ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer();
     lcfc.setBlockingRetryableExceptions(ShouldRetryOnlyBlockingException.class, ShouldRetryViaBothException.class);
     return lcfc;
 }

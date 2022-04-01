@@ -52,7 +52,6 @@ import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.kafka.support.converter.ConversionException;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
@@ -383,11 +382,8 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 		}
 
 		@Bean(name = RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_CONFIGURER_NAME)
-		public ListenerContainerFactoryConfigurer lcfc(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
-													DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
-													@Qualifier(RetryTopicInternalBeanNames
-															.INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
-			ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory, clock);
+		public ListenerContainerFactoryConfigurer lcfc() {
+			ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer();
 
 			lcfc.setBlockingRetriesBackOff(new FixedBackOff(50, 3));
 			lcfc.setBlockingRetryableExceptions(ShouldRetryOnlyBlockingException.class, ShouldRetryViaBothException.class);
