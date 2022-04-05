@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,14 +34,36 @@ public class TimestampedException extends KafkaException {
 
 	private final long timestamp;
 
+	@Deprecated
 	public TimestampedException(Exception ex, Clock clock) {
 		super(ex.getMessage(), ex);
 		this.timestamp = Instant.now(clock).toEpochMilli();
 	}
 
+	@Deprecated
 	public TimestampedException(Exception ex) {
 		super(ex.getMessage(), ex);
-		this.timestamp = Instant.now(Clock.systemDefaultZone()).toEpochMilli();
+		this.timestamp = Instant.now().toEpochMilli();
+	}
+
+	/**
+	 * Creates an instance with the timestamp of when it was thrown and its cause.
+	 * @param ex the exception cause.
+	 * @param timestamp the timestamp of when the exception was thrown.
+	 */
+	public TimestampedException(Exception ex, long timestamp) {
+		super("Exception thrown at " + Instant.ofEpochMilli(timestamp), ex);
+		this.timestamp = timestamp;
+	}
+
+	/**
+	 * Creates an instance with the timestamp of when it was thrown and its cause.
+	 * @param ex the exception cause.
+	 * @param now the Instant of when the exception was thrown.
+	 */
+	public TimestampedException(Exception ex, Instant now) {
+		super("Exception thrown at " + now, ex);
+		this.timestamp = now.toEpochMilli();
 	}
 
 	public long getTimestamp() {

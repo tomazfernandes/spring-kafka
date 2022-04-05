@@ -185,9 +185,37 @@ public class DeadLetterPublishingRecovererFactory {
 				? "none"
 				: nextDestination.getDestinationName()));
 
+		logException(e, cr, nextDestination);
+
 		return nextDestination.isNoOpsTopic()
 					? null
 					: resolveTopicPartition(cr, nextDestination);
+	}
+
+	private void logException(Exception e, ConsumerRecord<?, ?> cr, DestinationTopic nextDestination) {
+		if (nextDestination.isDltTopic()) {
+			LOGGER.error(e, () -> getErrorMessage(cr)
+					+ "Sending to DLT with name " + nextDestination.getDestinationName() + ".");
+		}
+		else if (nextDestination.isNoOpsTopic()) {
+			LOGGER.error(e, () -> getErrorMessage(cr)
+					+ "No further action will be taken with this record.");
+		}
+		else {
+			LOGGER.debug(e, () -> "Error processing record: " + getRecordInfo(cr) + " at topic " + cr.topic() + ". "
+					+ "Sending to retry topic " + nextDestination.getDestinationName() + ".");
+		}
+	}
+
+	private String getErrorMessage(ConsumerRecord<?, ?> cr) {
+		return "Record: " + getRecordInfo(cr) + " threw an error at topic " + cr.topic() + " and won't be retried. ";
+	}
+
+	private String getRecordInfo(ConsumerRecord<?, ?> cr) {
+		Header originalTopicHeader = cr.headers().lastHeader(KafkaHeaders.ORIGINAL_TOPIC);
+		return String.format("topic = %s, partition = %s, offset = %s, main topic = %s",
+				cr.topic(), cr.partition(), cr.offset(),
+				originalTopicHeader != null ? new String(originalTopicHeader.value()) : cr.topic());
 	}
 
 	/**

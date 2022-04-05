@@ -101,7 +101,7 @@ class DeadLetterPublishingRecovererFactoryTests {
 	@Test
 	void shouldSendMessage() {
 		// setup
-		TimestampedException e = new TimestampedException(new RuntimeException(), this.clock);
+		TimestampedException e = new TimestampedException(new RuntimeException(), Instant.now(this.clock));
 		long failureTimestamp = e.getTimestamp();
 		given(destinationTopicResolver.resolveDestinationTopic(testTopic, 1, e, failureTimestamp)).willReturn(destinationTopic);
 		given(destinationTopic.isNoOpsTopic()).willReturn(false);
@@ -315,7 +315,7 @@ class DeadLetterPublishingRecovererFactoryTests {
 	@Test
 	void shouldSendMessageEvenIfCircularFatal() {
 		// setup
-		TimestampedException e = new TimestampedException(new IllegalStateException(), this.clock);
+		TimestampedException e = new TimestampedException(new IllegalStateException(), Instant.now(this.clock));
 		long failureTimestamp = e.getTimestamp();
 		given(destinationTopicResolver.resolveDestinationTopic(testTopic, 1, e, failureTimestamp))
 				.willReturn(destinationTopic);
