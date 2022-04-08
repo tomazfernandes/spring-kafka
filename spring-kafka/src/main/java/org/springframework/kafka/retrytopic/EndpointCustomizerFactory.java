@@ -43,6 +43,8 @@ import org.springframework.kafka.support.TopicPartitionOffset;
  */
 public class EndpointCustomizerFactory {
 
+	private static final int DEFAULT_PARTITION_FOR_MANUAL_ASSIGNMENT = 0;
+
 	private final DestinationTopic.Properties destinationProperties;
 
 	private final EndpointHandlerMethod beanMethod;
@@ -95,7 +97,7 @@ public class EndpointCustomizerFactory {
 													TopicPartitionOffset[] topicPartitionOffsets) {
 		return Stream.of(topicPartitionOffsets)
 				.map(tpo -> new TopicPartitionOffset(namesProvider.getTopicName(tpo.getTopic()),
-						tpo.getPartition() <= properties.numPartitions() ? tpo.getPartition() : 0,
+						tpo.getPartition() <= properties.numPartitions() ? tpo.getPartition() : DEFAULT_PARTITION_FOR_MANUAL_ASSIGNMENT,
 						(Long) null))
 				.toArray(TopicPartitionOffset[]::new);
 	}
