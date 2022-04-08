@@ -24,7 +24,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
 import java.lang.reflect.Method;
@@ -47,6 +46,7 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistrar;
@@ -54,6 +54,7 @@ import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
 import org.springframework.kafka.config.MultiMethodKafkaListenerEndpoint;
 import org.springframework.kafka.support.EndpointHandlerMethod;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.util.Assert;
 
 /**
  * @author Tomaz Fernandes
@@ -119,7 +120,8 @@ class RetryTopicConfigurerTests {
 	@Mock
 	private ListenerContainerFactoryConfigurer.Configuration lcfcConfiguration;
 
-	private static final Object objectMessage = new Object();
+	@Mock
+	private Object objectMessage;
 
 	private static final List<String> topics = Arrays.asList("topic1", "topic2");
 
@@ -362,7 +364,15 @@ class RetryTopicConfigurerTests {
 		RetryTopicConfigurer.LoggingDltListenerHandlerMethod method =
 				new RetryTopicConfigurer.LoggingDltListenerHandlerMethod();
 		method.logMessage(consumerRecordMessage);
-		then(consumerRecordMessage).should(never()).topic();
+		LogAccessor logger = (LogAccessor) ReflectionTestUtils
+				.getField(RetryTopicConfigurer.class, "LOGGER");
+		Assert.notNull(logger, "No LOGGER found in class " + RetryTopicConfigurer.class.getSimpleName());
+		if (logger.isInfoEnabled()) {
+			then(consumerRecordMessage).should().topic();
+		}
+		else {
+			then(consumerRecordMessage).shouldHaveNoInteractions();
+		}
 	}
 
 	@Test
@@ -370,6 +380,7 @@ class RetryTopicConfigurerTests {
 		RetryTopicConfigurer.LoggingDltListenerHandlerMethod method =
 				new RetryTopicConfigurer.LoggingDltListenerHandlerMethod();
 		method.logMessage(objectMessage);
+		then(objectMessage).shouldHaveNoInteractions();
 	}
 
 	static class NoOpsClass {

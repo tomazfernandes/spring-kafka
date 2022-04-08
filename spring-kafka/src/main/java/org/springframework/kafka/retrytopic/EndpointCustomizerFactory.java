@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
@@ -68,10 +69,15 @@ public class EndpointCustomizerFactory {
 		RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider =
 				this.retryTopicNamesProviderFactory.createRetryTopicNamesProvider(properties);
 		return endpoint -> {
-			Collection<EndpointCustomizer.TopicNamesHolder> topics = customizeAndRegisterTopics(namesProvider, endpoint);
+			Collection<EndpointCustomizer.TopicNamesHolder> topics = getTopicNames(namesProvider, endpoint);
 			endpoint.setId(namesProvider.getEndpointId(endpoint));
 			endpoint.setGroupId(namesProvider.getGroupId(endpoint));
-			endpoint.setTopics(topics.stream().map(EndpointCustomizer.TopicNamesHolder::getCustomizedTopic).toArray(String[]::new));
+			if (endpoint.getTopics().isEmpty() && endpoint.getTopicPartitionsToAssign() != null) {
+				endpoint.setTopicPartitions(getTopicPartitions(properties, namesProvider, endpoint.getTopicPartitionsToAssign()));
+			}
+			else {
+				endpoint.setTopics(topics.stream().map(EndpointCustomizer.TopicNamesHolder::getCustomizedTopic).toArray(String[]::new));
+			}
 			endpoint.setClientIdPrefix(namesProvider.getClientIdPrefix(endpoint));
 			endpoint.setGroup(namesProvider.getGroup(endpoint));
 			endpoint.setBean(bean);
@@ -84,7 +90,17 @@ public class EndpointCustomizerFactory {
 		};
 	}
 
-	protected Collection<EndpointCustomizer.TopicNamesHolder> customizeAndRegisterTopics(
+	private TopicPartitionOffset[] getTopicPartitions(DestinationTopic.Properties properties,
+													RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider,
+													TopicPartitionOffset[] topicPartitionOffsets) {
+		return Stream.of(topicPartitionOffsets)
+				.map(tpo -> new TopicPartitionOffset(namesProvider.getTopicName(tpo.getTopic()),
+						tpo.getPartition() <= properties.numPartitions() ? tpo.getPartition() : 0,
+						(Long) null))
+				.toArray(TopicPartitionOffset[]::new);
+	}
+
+	protected Collection<EndpointCustomizer.TopicNamesHolder> getTopicNames(
 			RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider,
 			MethodKafkaListenerEndpoint<?, ?> endpoint) {
 
