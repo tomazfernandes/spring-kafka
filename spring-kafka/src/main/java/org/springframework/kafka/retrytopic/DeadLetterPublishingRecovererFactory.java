@@ -127,6 +127,7 @@ public class DeadLetterPublishingRecovererFactory {
 	/**
 	 * Never logs the listener exception.
 	 * The default is logging only after retries are exhausted.
+	 * @since 2.7.13
 	 */
 	public void neverLogListenerException() {
 		this.loggingStrategy = ListenerExceptionLoggingStrategy.NEVER;
@@ -135,6 +136,7 @@ public class DeadLetterPublishingRecovererFactory {
 	/**
 	 * Logs the listener exception at each attempt.
 	 * The default is logging only after retries are exhausted.
+	 * @since 2.7.13
 	 */
 	public void alwaysLogListenerException() {
 		this.loggingStrategy = ListenerExceptionLoggingStrategy.EACH_ATTEMPT;

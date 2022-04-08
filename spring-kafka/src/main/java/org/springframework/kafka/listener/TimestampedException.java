@@ -53,7 +53,7 @@ public class TimestampedException extends KafkaException {
 	 * Creates an instance with the timestamp of when it was thrown and its cause.
 	 * @param ex the exception cause.
 	 * @param timestamp the millis from epoch of when the exception was thrown.
-	 * @since 2.8.5
+	 * @since 2.7.13
 	 */
 	public TimestampedException(Exception ex, long timestamp) {
 		super("Exception thrown at " + Instant.ofEpochMilli(timestamp), ex);
@@ -64,7 +64,7 @@ public class TimestampedException extends KafkaException {
 	 * Creates an instance with the Instant of when it was thrown and its cause.
 	 * @param ex the exception cause.
 	 * @param now the Instant of when the exception was thrown.
-	 * @since 2.8.5
+	 * @since 2.7.13
 	 */
 	public TimestampedException(Exception ex, Instant now) {
 		super("Exception thrown at " + now, ex);
