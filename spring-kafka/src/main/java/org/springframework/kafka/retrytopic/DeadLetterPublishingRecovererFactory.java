@@ -54,7 +54,8 @@ import org.springframework.util.Assert;
  */
 public class DeadLetterPublishingRecovererFactory {
 
-	private static final LogAccessor LOGGER = new LogAccessor(LogFactory.getLog(DeadLetterPublishingRecovererFactory.class));
+	private static final LogAccessor LOGGER =
+			new LogAccessor(LogFactory.getLog(DeadLetterPublishingRecovererFactory.class));
 
 	private final DestinationTopicResolver destinationTopicResolver;
 
@@ -65,6 +66,8 @@ public class DeadLetterPublishingRecovererFactory {
 	private Consumer<DeadLetterPublishingRecoverer> recovererCustomizer = recoverer -> { };
 
 	private BiFunction<ConsumerRecord<?, ?>, Exception, Headers> headersFunction;
+
+	private ListenerExceptionLoggingStrategy loggingStrategy = ListenerExceptionLoggingStrategy.AFTER_RETRIES_EXHAUSTED;
 
 	public DeadLetterPublishingRecovererFactory(DestinationTopicResolver destinationTopicResolver) {
 		this.destinationTopicResolver = destinationTopicResolver;
@@ -119,6 +122,22 @@ public class DeadLetterPublishingRecovererFactory {
 	 */
 	public boolean removeNotRetryableException(Class<? extends Exception> exceptionType) {
 		return this.nonFatalExceptions.add(exceptionType);
+	}
+
+	/**
+	 * Never logs the listener exception.
+	 * The default is logging only after retries are exhausted.
+	 */
+	public void neverLogListenerException() {
+		this.loggingStrategy = ListenerExceptionLoggingStrategy.NEVER;
+	}
+
+	/**
+	 * Logs the listener exception at each attempt.
+	 * The default is logging only after retries are exhausted.
+	 */
+	public void alwaysLogListenerException() {
+		this.loggingStrategy = ListenerExceptionLoggingStrategy.EACH_ATTEMPT;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -185,33 +204,39 @@ public class DeadLetterPublishingRecovererFactory {
 				? "none"
 				: nextDestination.getDestinationName()));
 
-		logException(e, cr, nextDestination);
+		maybeLogListenerException(e, cr, nextDestination);
 
 		return nextDestination.isNoOpsTopic()
 					? null
 					: resolveTopicPartition(cr, nextDestination);
 	}
 
-	private void logException(Exception e, ConsumerRecord<?, ?> cr, DestinationTopic nextDestination) {
-		if (nextDestination.isDltTopic()) {
-			LOGGER.error(e, () -> getErrorMessage(cr)
+	private void maybeLogListenerException(Exception e, ConsumerRecord<?, ?> cr, DestinationTopic nextDestination) {
+		if (nextDestination.isDltTopic()
+				&& !ListenerExceptionLoggingStrategy.NEVER.equals(this.loggingStrategy)) {
+			LOGGER.error(e, () -> getErrorMessage(cr) + " and won't be retried. "
 					+ "Sending to DLT with name " + nextDestination.getDestinationName() + ".");
 		}
-		else if (nextDestination.isNoOpsTopic()) {
-			LOGGER.error(e, () -> getErrorMessage(cr)
+		else if (nextDestination.isNoOpsTopic()
+				&& !ListenerExceptionLoggingStrategy.NEVER.equals(this.loggingStrategy)) {
+			LOGGER.error(e, () -> getErrorMessage(cr) + " and won't be retried. "
 					+ "No further action will be taken with this record.");
 		}
+		else if (ListenerExceptionLoggingStrategy.EACH_ATTEMPT.equals(this.loggingStrategy)) {
+			LOGGER.error(e, () -> getErrorMessage(cr) + ". "
+					+ "Sending to retry topic " + nextDestination.getDestinationName() + ".");
+		}
 		else {
-			LOGGER.debug(e, () -> "Error processing record: " + getRecordInfo(cr) + " at topic " + cr.topic() + ". "
+			LOGGER.debug(e, () -> getErrorMessage(cr) + ". "
 					+ "Sending to retry topic " + nextDestination.getDestinationName() + ".");
 		}
 	}
 
-	private String getErrorMessage(ConsumerRecord<?, ?> cr) {
-		return "Record: " + getRecordInfo(cr) + " threw an error at topic " + cr.topic() + " and won't be retried. ";
+	private static String getErrorMessage(ConsumerRecord<?, ?> cr) {
+		return "Record: " + getRecordInfo(cr) + " threw an error at topic " + cr.topic();
 	}
 
-	private String getRecordInfo(ConsumerRecord<?, ?> cr) {
+	private static String getRecordInfo(ConsumerRecord<?, ?> cr) {
 		Header originalTopicHeader = cr.headers().lastHeader(KafkaHeaders.ORIGINAL_TOPIC);
 		return String.format("topic = %s, partition = %s, offset = %s, main topic = %s",
 				cr.topic(), cr.partition(), cr.offset(),
@@ -312,6 +337,23 @@ public class DeadLetterPublishingRecovererFactory {
 		return consumerRecord.headers()
 					.lastHeader(RetryTopicHeaders.DEFAULT_HEADER_ORIGINAL_TIMESTAMP);
 	}
+
+	private enum ListenerExceptionLoggingStrategy {
+
+		/**
+		 * Never log the listener exception.
+		 */
+		NEVER,
+
+		/**
+		 * Log the listener exception after each attempt.
+		 */
+		EACH_ATTEMPT,
+
+		/**
+		 * Log the listener only after retries are exhausted.
+		 */
+		AFTER_RETRIES_EXHAUSTED
+
+	}
 }
-
-
