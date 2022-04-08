@@ -53,7 +53,7 @@ public class EndpointCustomizerFactory {
 
 	private final RetryTopicNamesProviderFactory retryTopicNamesProviderFactory;
 
-	EndpointCustomizerFactory(DestinationTopic.Properties destinationProperties, EndpointHandlerMethod beanMethod,
+	public EndpointCustomizerFactory(DestinationTopic.Properties destinationProperties, EndpointHandlerMethod beanMethod,
 							BeanFactory beanFactory, RetryTopicNamesProviderFactory retryTopicNamesProviderFactory) {
 
 		this.destinationProperties = destinationProperties;
@@ -71,7 +71,7 @@ public class EndpointCustomizerFactory {
 		RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider =
 				this.retryTopicNamesProviderFactory.createRetryTopicNamesProvider(properties);
 		return endpoint -> {
-			Collection<EndpointCustomizer.TopicNamesHolder> topics = getTopicNames(namesProvider, endpoint);
+			Collection<EndpointCustomizer.TopicNamesHolder> topics = customizeAndRegisterTopics(namesProvider, endpoint);
 			endpoint.setId(namesProvider.getEndpointId(endpoint));
 			endpoint.setGroupId(namesProvider.getGroupId(endpoint));
 			if (endpoint.getTopics().isEmpty() && endpoint.getTopicPartitionsToAssign() != null) {
@@ -92,7 +92,7 @@ public class EndpointCustomizerFactory {
 		};
 	}
 
-	private TopicPartitionOffset[] getTopicPartitions(DestinationTopic.Properties properties,
+	private static TopicPartitionOffset[] getTopicPartitions(DestinationTopic.Properties properties,
 													RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider,
 													TopicPartitionOffset[] topicPartitionOffsets) {
 		return Stream.of(topicPartitionOffsets)
@@ -102,7 +102,7 @@ public class EndpointCustomizerFactory {
 				.toArray(TopicPartitionOffset[]::new);
 	}
 
-	protected Collection<EndpointCustomizer.TopicNamesHolder> getTopicNames(
+	protected Collection<EndpointCustomizer.TopicNamesHolder> customizeAndRegisterTopics(
 			RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider,
 			MethodKafkaListenerEndpoint<?, ?> endpoint) {
 

@@ -220,9 +220,10 @@ public class DestinationTopic {
 		}
 
 		/**
-		 * Returns the number of partitions the
+		 * Return the number of partitions the
 		 * retry topics should be created with.
 		 * @return the number of partitions.
+		 * @since 2.7.13
 		 */
 		public int numPartitions() {
 			return this.numPartitions;

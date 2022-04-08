@@ -46,15 +46,14 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistrar;
 import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
 import org.springframework.kafka.config.MultiMethodKafkaListenerEndpoint;
 import org.springframework.kafka.support.EndpointHandlerMethod;
+import org.springframework.kafka.test.condition.LogLevels;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.util.Assert;
 
 /**
  * @author Tomaz Fernandes
@@ -358,21 +357,14 @@ class RetryTopicConfigurerTests {
 
 	}
 
+	@LogLevels(classes = RetryTopicConfigurer.class, level = "info")
 	@Test
 	@SuppressWarnings("deprecation")
 	void shouldLogConsumerRecordMessage() {
 		RetryTopicConfigurer.LoggingDltListenerHandlerMethod method =
 				new RetryTopicConfigurer.LoggingDltListenerHandlerMethod();
 		method.logMessage(consumerRecordMessage);
-		LogAccessor logger = (LogAccessor) ReflectionTestUtils
-				.getField(RetryTopicConfigurer.class, "LOGGER");
-		Assert.notNull(logger, "No LOGGER found in class " + RetryTopicConfigurer.class.getSimpleName());
-		if (logger.isInfoEnabled()) {
-			then(consumerRecordMessage).should().topic();
-		}
-		else {
-			then(consumerRecordMessage).shouldHaveNoInteractions();
-		}
+		then(consumerRecordMessage).should().topic();
 	}
 
 	@Test
