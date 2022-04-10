@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ public class ListenerContainerFactoryResolver {
 
 	private final Cache retryEndpointCache;
 
-
-	ListenerContainerFactoryResolver(BeanFactory beanFactory) {
+	@SuppressWarnings("deprecation")
+	public ListenerContainerFactoryResolver(BeanFactory beanFactory) {
 		this.beanFactory = beanFactory;
 		this.mainEndpointCache = new Cache();
 		this.retryEndpointCache = new Cache();
@@ -64,7 +64,9 @@ public class ListenerContainerFactoryResolver {
 				(fromKLAnnotation, configuration) -> configuration.factoryFromRetryTopicConfiguration,
 				(fromKLAnnotation, configuration) -> fromBeanName(configuration.listenerContainerFactoryName),
 				(fromKLAnnotation, configuration) ->
-						fromBeanName(RetryTopicInternalBeanNames.DEFAULT_LISTENER_FACTORY_BEAN_NAME));
+						fromBeanName(RetryTopicInternalBeanNames.DEFAULT_LISTENER_FACTORY_BEAN_NAME),
+				(fromKLAnnotation, configuration) ->
+						fromBeanName(RetryTopicBeanNames.DEFAULT_LISTENER_CONTAINER_FACTORY_BEAN_NAME));
 
 		this.retryEndpointResolvers = Arrays.asList(
 				this.retryEndpointCache::fromCache,
@@ -72,7 +74,9 @@ public class ListenerContainerFactoryResolver {
 				(fromKLAnnotation, configuration) -> fromBeanName(configuration.listenerContainerFactoryName),
 				(fromKLAnnotation, configuration) -> fromKLAnnotation,
 				(fromKLAnnotation, configuration) ->
-						fromBeanName(RetryTopicInternalBeanNames.DEFAULT_LISTENER_FACTORY_BEAN_NAME));
+						fromBeanName(RetryTopicInternalBeanNames.DEFAULT_LISTENER_FACTORY_BEAN_NAME),
+				(fromKLAnnotation, configuration) ->
+						fromBeanName(RetryTopicBeanNames.DEFAULT_LISTENER_CONTAINER_FACTORY_BEAN_NAME));
 	}
 
 	ConcurrentKafkaListenerContainerFactory<?, ?> resolveFactoryForMainEndpoint(
@@ -124,7 +128,7 @@ public class ListenerContainerFactoryResolver {
 				.orElseThrow(() -> new IllegalArgumentException("Could not resolve a viable " +
 						"ConcurrentKafkaListenerContainerFactory to configure the retry topic. " +
 						"Try creating a bean with name " +
-						RetryTopicInternalBeanNames.DEFAULT_LISTENER_FACTORY_BEAN_NAME));
+						RetryTopicBeanNames.DEFAULT_LISTENER_CONTAINER_FACTORY_BEAN_NAME));
 	}
 
 	@Nullable

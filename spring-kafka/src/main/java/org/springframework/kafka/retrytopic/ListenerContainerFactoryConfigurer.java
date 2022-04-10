@@ -98,6 +98,7 @@ public class ListenerContainerFactoryConfigurer {
 
 	private final Clock clock;
 
+	@SuppressWarnings("deprecation")
 	public ListenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
 									DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
 									@Qualifier(RetryTopicInternalBeanNames

@@ -19,7 +19,6 @@ package org.springframework.kafka.retrytopic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,9 +40,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.annotation.EnableRetryTopic;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.PartitionOffset;
 import org.springframework.kafka.annotation.RetryableTopic;
@@ -66,7 +65,6 @@ import org.springframework.messaging.converter.GenericMessageConverter;
 import org.springframework.messaging.converter.SmartMessageConverter;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.retry.annotation.Backoff;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
@@ -174,6 +172,9 @@ public class RetryTopicIntegrationTests {
 
 	@Component
 	static class FirstTopicListener {
+
+		@Autowired
+		DestinationTopicResolver resolver;
 
 		@Autowired
 		CountDownLatchContainer container;
@@ -479,38 +480,6 @@ public class RetryTopicIntegrationTests {
 		}
 	}
 
-
-	@Configuration
-	public static class RuntimeConfig {
-
-		@Bean(name = RetryTopicInternalBeanNames.INTERNAL_BACKOFF_CLOCK_BEAN_NAME)
-		public Clock clock() {
-			return Clock.systemUTC();
-		}
-
-		@Bean
-		public TaskExecutor taskExecutor() {
-			return new ThreadPoolTaskExecutor();
-		}
-
-		@Bean(destroyMethod = "destroy")
-		public TaskExecutorManager taskExecutorManager(ThreadPoolTaskExecutor taskExecutor) {
-			return new TaskExecutorManager(taskExecutor);
-		}
-	}
-
-	static class TaskExecutorManager {
-		private final ThreadPoolTaskExecutor taskExecutor;
-
-		TaskExecutorManager(ThreadPoolTaskExecutor taskExecutor) {
-			this.taskExecutor = taskExecutor;
-		}
-
-		void destroy() {
-			this.taskExecutor.shutdown();
-		}
-	}
-
 	@Configuration
 	public static class KafkaProducerConfig {
 
@@ -539,6 +508,7 @@ public class RetryTopicIntegrationTests {
 	}
 
 	@EnableKafka
+	@EnableRetryTopic
 	@Configuration
 	public static class KafkaConsumerConfig {
 

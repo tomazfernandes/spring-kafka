@@ -86,6 +86,7 @@ import org.springframework.kafka.config.MultiMethodKafkaListenerEndpoint;
 import org.springframework.kafka.listener.ContainerGroupSequencer;
 import org.springframework.kafka.listener.KafkaListenerErrorHandler;
 import org.springframework.kafka.listener.adapter.RecordFilterStrategy;
+import org.springframework.kafka.retrytopic.RetryTopicBeanNames;
 import org.springframework.kafka.retrytopic.RetryTopicBootstrapper;
 import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
@@ -509,11 +510,15 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 		return true;
 	}
 
+	@SuppressWarnings("deprecation")
 	private RetryTopicConfigurer getRetryTopicConfigurer() {
 		bootstrapRetryTopicIfNecessary();
-		return this.beanFactory.getBean(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER, RetryTopicConfigurer.class);
+		return this.beanFactory.containsBean(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER)
+				? this.beanFactory.getBean(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER, RetryTopicConfigurer.class)
+				: this.beanFactory.getBean(RetryTopicBeanNames.RETRY_TOPIC_CONFIGURER_BEAN_NAME, RetryTopicConfigurer.class);
 	}
 
+	@SuppressWarnings("deprecation")
 	private void bootstrapRetryTopicIfNecessary() {
 		if (!(this.beanFactory instanceof BeanDefinitionRegistry)) {
 			throw new IllegalStateException("BeanFactory must be an instance of "

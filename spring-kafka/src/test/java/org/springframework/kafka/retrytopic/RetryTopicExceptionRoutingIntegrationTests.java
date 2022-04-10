@@ -19,7 +19,6 @@ package org.springframework.kafka.retrytopic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
-import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -36,15 +35,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.annotation.EnableRetryTopic;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.RetryTopicConfigurationSupport;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -52,7 +52,6 @@ import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.kafka.support.converter.ConversionException;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
@@ -382,27 +381,22 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 			return new DltProcessorWithError();
 		}
 
-		@Bean(name = RetryTopicInternalBeanNames.LISTENER_CONTAINER_FACTORY_CONFIGURER_NAME)
-		public ListenerContainerFactoryConfigurer lcfc(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
-													DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
-													@Qualifier(RetryTopicInternalBeanNames
-															.INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
-			ListenerContainerFactoryConfigurer lcfc = new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory, clock);
+	}
 
-			lcfc.setBlockingRetriesBackOff(new FixedBackOff(50, 3));
-			lcfc.setBlockingRetryableExceptions(ShouldRetryOnlyBlockingException.class, ShouldRetryViaBothException.class);
-			return lcfc;
+	public static class RoutingTestsConfigurationSupport extends RetryTopicConfigurationSupport {
+
+		@Override
+		protected void configureBlockingRetries(BlockingRetriesConfigurer blockingRetries) {
+			blockingRetries
+					.retryOn(ShouldRetryOnlyBlockingException.class, ShouldRetryViaBothException.class)
+					.backOff(new FixedBackOff(50, 3));
 		}
 
-		@Bean(name = RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME)
-		public DefaultDestinationTopicResolver ddtr(ApplicationContext applicationContext,
-													@Qualifier(RetryTopicInternalBeanNames
-															.INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
-			DefaultDestinationTopicResolver ddtr = new DefaultDestinationTopicResolver(clock, applicationContext);
-			ddtr.addNotRetryableExceptions(ShouldSkipBothRetriesException.class);
-			return ddtr;
+		@Override
+		protected void configureNonBlockingRetries(NonBlockingRetriesConfigurer nonBlockingRetries) {
+			nonBlockingRetries
+					.addToFatalExceptions(ShouldSkipBothRetriesException.class);
 		}
-
 	}
 
 	@Configuration
@@ -433,6 +427,8 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 	}
 
 	@EnableKafka
+	@EnableRetryTopic
+	@Import(RoutingTestsConfigurationSupport.class)
 	@Configuration
 	public static class KafkaConsumerConfig {
 
