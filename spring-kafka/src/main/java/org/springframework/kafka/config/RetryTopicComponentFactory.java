@@ -19,7 +19,6 @@ package org.springframework.kafka.config;
 import java.time.Clock;
 
 import org.springframework.beans.factory.BeanFactory;
-import org.springframework.context.ApplicationContext;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
@@ -55,7 +54,6 @@ public class RetryTopicComponentFactory {
 	 * for configuring non-blocking topic-based delayed retries for a given
 	 * {@link KafkaListenerEndpoint} by processing the appropriate
 	 * {@link RetryTopicConfiguration}.
-	 * @param beanFactory the {@link BeanFactory} to be used in the configuration process.
 	 * @param destinationTopicProcessor the {@link DestinationTopicProcessor} that will be
 	 * used to process the {@link DestinationTopic} instances.
 	 * @param listenerContainerFactoryConfigurer the
@@ -69,13 +67,12 @@ public class RetryTopicComponentFactory {
 	 * that will be used to provide the property names for the retry topics' endpoints.
 	 * @return the instance.
 	 */
-	public RetryTopicConfigurer retryTopicConfigurer(BeanFactory beanFactory,
-													DestinationTopicProcessor destinationTopicProcessor,
+	public RetryTopicConfigurer retryTopicConfigurer(DestinationTopicProcessor destinationTopicProcessor,
 													ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer,
 													ListenerContainerFactoryResolver factoryResolver,
 													RetryTopicNamesProviderFactory retryTopicNamesProviderFactory) {
 		return new RetryTopicConfigurer(destinationTopicProcessor, factoryResolver,
-				listenerContainerFactoryConfigurer, beanFactory, retryTopicNamesProviderFactory);
+				listenerContainerFactoryConfigurer, retryTopicNamesProviderFactory);
 	}
 
 	/**
@@ -95,11 +92,10 @@ public class RetryTopicComponentFactory {
 	 * the {@link DestinationTopic} instances
 	 * and resolve which a given record should be forwarded to.
 	 *
-	 * @param context the {@link ApplicationContext} to be used.
 	 * @return the instance.
 	 */
-	public DestinationTopicResolver destinationTopicResolver(ApplicationContext context) {
-		return new DefaultDestinationTopicResolver(this.internalRetryTopicClock, context);
+	public DestinationTopicResolver destinationTopicResolver() {
+		return new DefaultDestinationTopicResolver(this.internalRetryTopicClock);
 	}
 
 	/**

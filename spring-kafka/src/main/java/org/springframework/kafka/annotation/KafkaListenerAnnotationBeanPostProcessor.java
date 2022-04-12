@@ -90,7 +90,6 @@ import org.springframework.kafka.retrytopic.RetryTopicBeanNames;
 import org.springframework.kafka.retrytopic.RetryTopicBootstrapper;
 import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
-import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
 import org.springframework.kafka.support.TopicPartitionOffset;
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.converter.GenericMessageConverter;
@@ -510,11 +509,10 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 		return true;
 	}
 
-	@SuppressWarnings("deprecation")
 	private RetryTopicConfigurer getRetryTopicConfigurer() {
 		bootstrapRetryTopicIfNecessary();
-		return this.beanFactory.containsBean(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER)
-				? this.beanFactory.getBean(RetryTopicInternalBeanNames.RETRY_TOPIC_CONFIGURER, RetryTopicConfigurer.class)
+		return this.beanFactory.containsBean("internalRetryTopicConfigurer")
+				? this.beanFactory.getBean("internalRetryTopicConfigurer", RetryTopicConfigurer.class)
 				: this.beanFactory.getBean(RetryTopicBeanNames.RETRY_TOPIC_CONFIGURER_BEAN_NAME, RetryTopicConfigurer.class);
 	}
 
@@ -527,13 +525,10 @@ public class KafkaListenerAnnotationBeanPostProcessor<K, V>
 					+ this.beanFactory.getClass().getSimpleName());
 		}
 		BeanDefinitionRegistry registry = (BeanDefinitionRegistry) this.beanFactory;
-		if (!registry.containsBeanDefinition(RetryTopicInternalBeanNames
-				.RETRY_TOPIC_BOOTSTRAPPER)) {
-			registry.registerBeanDefinition(RetryTopicInternalBeanNames
-							.RETRY_TOPIC_BOOTSTRAPPER,
+		if (!registry.containsBeanDefinition("internalRetryTopicBootstrapper")) {
+			registry.registerBeanDefinition("internalRetryTopicBootstrapper",
 					new RootBeanDefinition(RetryTopicBootstrapper.class));
-			this.beanFactory.getBean(RetryTopicInternalBeanNames
-					.RETRY_TOPIC_BOOTSTRAPPER, RetryTopicBootstrapper.class).bootstrapRetryTopic();
+			this.beanFactory.getBean("internalRetryTopicBootstrapper", RetryTopicBootstrapper.class).bootstrapRetryTopic();
 		}
 	}
 

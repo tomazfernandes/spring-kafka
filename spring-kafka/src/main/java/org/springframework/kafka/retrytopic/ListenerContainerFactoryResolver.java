@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.lang.Nullable;
@@ -52,7 +53,6 @@ public class ListenerContainerFactoryResolver {
 
 	private final Cache retryEndpointCache;
 
-	@SuppressWarnings("deprecation")
 	public ListenerContainerFactoryResolver(BeanFactory beanFactory) {
 		this.beanFactory = beanFactory;
 		this.mainEndpointCache = new Cache();
@@ -64,7 +64,7 @@ public class ListenerContainerFactoryResolver {
 				(fromKLAnnotation, configuration) -> configuration.factoryFromRetryTopicConfiguration,
 				(fromKLAnnotation, configuration) -> fromBeanName(configuration.listenerContainerFactoryName),
 				(fromKLAnnotation, configuration) ->
-						fromBeanName(RetryTopicInternalBeanNames.DEFAULT_LISTENER_FACTORY_BEAN_NAME),
+						fromBeanName("internalRetryTopicListenerContainerFactory"),
 				(fromKLAnnotation, configuration) ->
 						fromBeanName(RetryTopicBeanNames.DEFAULT_LISTENER_CONTAINER_FACTORY_BEAN_NAME));
 
@@ -74,7 +74,7 @@ public class ListenerContainerFactoryResolver {
 				(fromKLAnnotation, configuration) -> fromBeanName(configuration.listenerContainerFactoryName),
 				(fromKLAnnotation, configuration) -> fromKLAnnotation,
 				(fromKLAnnotation, configuration) ->
-						fromBeanName(RetryTopicInternalBeanNames.DEFAULT_LISTENER_FACTORY_BEAN_NAME),
+						fromBeanName("internalRetryTopicListenerContainerFactory"),
 				(fromKLAnnotation, configuration) ->
 						fromBeanName(RetryTopicBeanNames.DEFAULT_LISTENER_CONTAINER_FACTORY_BEAN_NAME));
 	}
@@ -141,9 +141,14 @@ public class ListenerContainerFactoryResolver {
 
 	@Nullable
 	private ConcurrentKafkaListenerContainerFactory<?, ?> fromBeanName(String factoryBeanName) {
-		return StringUtils.hasText(factoryBeanName)
-				? this.beanFactory.getBean(factoryBeanName, ConcurrentKafkaListenerContainerFactory.class)
-				: null;
+		try {
+			return StringUtils.hasText(factoryBeanName)
+					? this.beanFactory.getBean(factoryBeanName, ConcurrentKafkaListenerContainerFactory.class)
+					: null;
+		}
+		catch (NoSuchBeanDefinitionException ex) {
+			return null;
+		}
 	}
 
 	private interface FactoryResolver {

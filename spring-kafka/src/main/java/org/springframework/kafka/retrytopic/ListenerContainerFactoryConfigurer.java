@@ -98,11 +98,9 @@ public class ListenerContainerFactoryConfigurer {
 
 	private final Clock clock;
 
-	@SuppressWarnings("deprecation")
 	public ListenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
 									DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
-									@Qualifier(RetryTopicInternalBeanNames
-											.INTERNAL_BACKOFF_CLOCK_BEAN_NAME) Clock clock) {
+									@Qualifier("internalBackOffClock") Clock clock) {
 		this.kafkaConsumerBackoffManager = kafkaConsumerBackoffManager;
 		this.deadLetterPublishingRecovererFactory = deadLetterPublishingRecovererFactory;
 		this.clock = clock;

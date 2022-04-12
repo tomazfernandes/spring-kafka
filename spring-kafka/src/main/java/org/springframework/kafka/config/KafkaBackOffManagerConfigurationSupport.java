@@ -18,14 +18,9 @@ package org.springframework.kafka.config;
 
 import java.time.Clock;
 
-import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.KafkaConsumerTimingAdjuster;
@@ -46,9 +41,9 @@ import org.springframework.util.Assert;
  * @author Tomaz Fernandes
  * @since 2.9
  */
-public class KafkaBackOffManagerConfigurationSupport implements ApplicationContextAware {
+public class KafkaBackOffManagerConfigurationSupport implements DisposableBean {
 
-	private ConfigurableApplicationContext applicationContext;
+	private ThreadPoolTaskExecutor taskExecutor;
 
 	/**
 	 * Provides the {@link KafkaConsumerBackoffManager} instance.
@@ -93,16 +88,17 @@ public class KafkaBackOffManagerConfigurationSupport implements ApplicationConte
 	 * @return the instance.
 	 */
 	protected TaskExecutor timingAdjusterTaskExecutor() {
+		Assert.isNull(this.taskExecutor, "A TaskExecutor has already been set.");
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 		executor.initialize();
-		this.applicationContext
-				.addApplicationListener((ApplicationListener<ContextClosedEvent>) event -> executor.shutdown());
+		this.taskExecutor = executor;
 		return executor;
 	}
 
 	@Override
-	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-		Assert.isInstanceOf(ConfigurableApplicationContext.class, applicationContext);
-		this.applicationContext = (ConfigurableApplicationContext) applicationContext;
+	public void destroy() throws Exception {
+		if (this.taskExecutor != null) {
+			this.taskExecutor.shutdown();
+		}
 	}
 }

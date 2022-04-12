@@ -94,7 +94,7 @@ public class RetryTopicConfigurationSupport {
 		processListenerContainerFactoryConfigurer(lcfc);
 
 		RetryTopicConfigurer retryTopicConfigurer = this.componentFactory
-				.retryTopicConfigurer(beanFactory, destinationTopicProcessor, lcfc,
+				.retryTopicConfigurer(destinationTopicProcessor, lcfc,
 						factoryResolver, retryTopicNamesProviderFactory);
 
 		Consumer<RetryTopicConfigurer> configurerConsumer = configureRetryTopicConfigurer();
@@ -219,12 +219,11 @@ public class RetryTopicConfigurationSupport {
 	 * <li>{@link #createComponentFactory} for providing a subclass instance.
 	 * </ul>
 	 *
-	 * @param context the {@link ApplicationContext}.
 	 * @return the instance.
 	 */
 	@Bean(name = RetryTopicBeanNames.DESTINATION_TOPIC_RESOLVER_BEAN_NAME)
-	public DestinationTopicResolver destinationTopicResolver(ApplicationContext context) {
-		DestinationTopicResolver destinationTopicResolver = this.componentFactory.destinationTopicResolver(context);
+	public DestinationTopicResolver destinationTopicResolver() {
+		DestinationTopicResolver destinationTopicResolver = this.componentFactory.destinationTopicResolver();
 		if (destinationTopicResolver instanceof DefaultDestinationTopicResolver) {
 			DefaultDestinationTopicResolver ddtr = (DefaultDestinationTopicResolver) destinationTopicResolver;
 			NonBlockingRetriesConfigurer configurer = new NonBlockingRetriesConfigurer();
