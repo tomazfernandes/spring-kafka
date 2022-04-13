@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -30,6 +31,9 @@ import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
+import org.springframework.kafka.listener.ListenerContainerRegistry;
+import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
 import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory;
 import org.springframework.kafka.retrytopic.DefaultDestinationTopicResolver;
 import org.springframework.kafka.retrytopic.DestinationTopicProcessor;
@@ -57,9 +61,11 @@ import org.springframework.util.backoff.BackOff;
  * @author Tomaz Fernandes
  * @since 2.9
 */
-public class RetryTopicConfigurationSupport {
+public class RetryTopicConfigurationSupport implements DisposableBean {
 
 	private final RetryTopicComponentFactory componentFactory = createComponentFactory();
+
+	private DisposableBean disposableBackOffManagerFactory;
 
 	/**
 	 * Return a global {@link RetryTopicConfigurer} for configuring retry topics
@@ -253,6 +259,24 @@ public class RetryTopicConfigurationSupport {
 	}
 
 	/**
+	 * Provides the {@link KafkaConsumerBackoffManager} instance.
+	 * Override this method to provide a customized implementation.
+	 * A {@link PartitionPausingBackOffManagerFactory} can be used for that purpose,
+	 * or a different implementation can be provided.
+	 * @param registry the {@link ListenerContainerRegistry} to be used to fetch the
+	 * {@link MessageListenerContainer} to be backed off.
+	 * @return the instance.
+	 */
+	@Bean(name = KafkaListenerConfigUtils.KAFKA_CONSUMER_BACK_OFF_MANAGER_BEAN_NAME)
+	public KafkaConsumerBackoffManager kafkaConsumerBackoffManager(
+			@Qualifier(KafkaListenerConfigUtils.KAFKA_LISTENER_ENDPOINT_REGISTRY_BEAN_NAME)
+					ListenerContainerRegistry registry) {
+		PartitionPausingBackOffManagerFactory factory = new PartitionPausingBackOffManagerFactory(registry);
+		this.disposableBackOffManagerFactory = factory;
+		return factory.create();
+	}
+
+	/**
 	 * Override this method if you want to provide a subclass
 	 * of {@link RetryTopicComponentFactory} with different
 	 * component implementations or subclasses.
@@ -266,6 +290,13 @@ public class RetryTopicConfigurationSupport {
 	@Bean(name = RetryTopicInternalBeanNames.RETRY_TOPIC_BOOTSTRAPPER)
 	RetryTopicBootstrapper retryTopicBootstrapper(ApplicationContext context) {
 		return new RetryTopicBootstrapper(context, context.getAutowireCapableBeanFactory());
+	}
+
+	@Override
+	public void destroy() throws Exception {
+		if (this.disposableBackOffManagerFactory != null) {
+			this.disposableBackOffManagerFactory.destroy();
+		}
 	}
 
 	public static class BlockingRetriesConfigurer {

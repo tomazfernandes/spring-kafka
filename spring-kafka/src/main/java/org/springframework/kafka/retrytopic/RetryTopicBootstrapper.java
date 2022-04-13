@@ -32,6 +32,7 @@ import org.springframework.kafka.listener.KafkaBackOffManagerFactory;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.KafkaConsumerTimingAdjuster;
 import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
+import org.springframework.kafka.listener.PartitionPausingBackoffManager;
 import org.springframework.retry.backoff.ThreadWaitSleeper;
 
 /**
@@ -110,9 +111,11 @@ public class RetryTopicBootstrapper {
 	}
 
 	private void addApplicationListeners() {
-		((ConfigurableApplicationContext) this.applicationContext)
-				.addApplicationListener(this.applicationContext.getBean(
-						RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME, DefaultDestinationTopicResolver.class));
+		ConfigurableApplicationContext context = (ConfigurableApplicationContext) this.applicationContext;
+		context.addApplicationListener(this.applicationContext.getBean(
+				RetryTopicInternalBeanNames.DESTINATION_TOPIC_CONTAINER_NAME, DefaultDestinationTopicResolver.class));
+		context.addApplicationListener(this.applicationContext.getBean(
+				RetryTopicInternalBeanNames.KAFKA_CONSUMER_BACKOFF_MANAGER, PartitionPausingBackoffManager.class));
 	}
 
 	private KafkaConsumerBackoffManager createKafkaConsumerBackoffManager() {

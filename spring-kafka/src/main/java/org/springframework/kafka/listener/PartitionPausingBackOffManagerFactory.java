@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@ package org.springframework.kafka.listener;
 
 import java.time.Clock;
 
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.Assert;
@@ -32,7 +31,8 @@ import org.springframework.util.Assert;
  * @author Tomaz Fernandes
  * @since 2.7
  */
-public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffManagerFactory {
+public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffManagerFactory
+		implements DisposableBean {
 
 	private boolean timingAdjustmentEnabled = true;
 
@@ -133,9 +133,7 @@ public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffM
 
 	@Override
 	protected KafkaConsumerBackoffManager doCreateManager(ListenerContainerRegistry registry) {
-		PartitionPausingBackoffManager kafkaConsumerBackoffManager = getKafkaConsumerBackoffManager(registry);
-		super.addApplicationListener(kafkaConsumerBackoffManager);
-		return kafkaConsumerBackoffManager;
+		return getKafkaConsumerBackoffManager(registry);
 	}
 
 	protected final Clock getDefaultClock() {
@@ -161,7 +159,15 @@ public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffM
 		}
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 		executor.initialize();
-		super.addApplicationListener((ApplicationListener<ContextClosedEvent>) event -> executor.shutdown());
+		this.taskExecutor = executor;
 		return executor;
+	}
+
+	@Override
+	public void destroy() throws Exception {
+		if (this.taskExecutor != null
+				&& ThreadPoolTaskExecutor.class.isAssignableFrom(this.taskExecutor.getClass())) {
+			((ThreadPoolTaskExecutor) this.taskExecutor).shutdown();
+		}
 	}
 }

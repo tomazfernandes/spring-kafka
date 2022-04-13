@@ -24,7 +24,6 @@ import java.lang.annotation.Target;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.config.KafkaBackOffManagerConfigurationSupport;
 import org.springframework.kafka.config.RetryTopicConfigurationSupport;
 
 /**
@@ -82,6 +81,6 @@ import org.springframework.kafka.config.RetryTopicConfigurationSupport;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Documented
-@Import({RetryTopicConfigurationSupport.class, KafkaBackOffManagerConfigurationSupport.class})
+@Import(RetryTopicConfigurationSupport.class)
 public @interface EnableRetryTopic {
 }
