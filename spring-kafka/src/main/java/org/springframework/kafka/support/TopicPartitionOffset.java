@@ -213,9 +213,7 @@ public class TopicPartitionOffset {
 
 	@Override
 	public int hashCode() {
-		return this.position != null
-				? this.topicPartition.hashCode() + this.position.hashCode()
-				: this.topicPartition.hashCode();
+		return this.topicPartition.hashCode() + this.position.hashCode();
 	}
 
 	@Override

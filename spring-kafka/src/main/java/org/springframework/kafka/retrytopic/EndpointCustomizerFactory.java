@@ -72,16 +72,15 @@ public class EndpointCustomizerFactory {
 				this.retryTopicNamesProviderFactory.createRetryTopicNamesProvider(properties);
 		return endpoint -> {
 			Collection<EndpointCustomizer.TopicNamesHolder> topics = customizeAndRegisterTopics(namesProvider, endpoint);
-			if (properties.isMainEndpoint()) {
-				return topics;
-			}
 			endpoint.setId(namesProvider.getEndpointId(endpoint));
 			endpoint.setGroupId(namesProvider.getGroupId(endpoint));
-			if (endpoint.getTopics().isEmpty() && endpoint.getTopicPartitionsToAssign() != null) {
+			if (endpoint.getTopics().isEmpty() && endpoint.getTopicPartitionsToAssign() != null
+					&& !properties.isMainEndpoint()) {
 				endpoint.setTopicPartitions(getTopicPartitions(properties, namesProvider, endpoint.getTopicPartitionsToAssign()));
 			}
 			else {
-				endpoint.setTopics(topics.stream().map(EndpointCustomizer.TopicNamesHolder::getCustomizedTopic).toArray(String[]::new));
+				endpoint.setTopics(endpoint.getTopics().stream()
+						.map(namesProvider::getTopicName).toArray(String[]::new));
 			}
 			endpoint.setClientIdPrefix(namesProvider.getClientIdPrefix(endpoint));
 			endpoint.setGroup(namesProvider.getGroup(endpoint));
