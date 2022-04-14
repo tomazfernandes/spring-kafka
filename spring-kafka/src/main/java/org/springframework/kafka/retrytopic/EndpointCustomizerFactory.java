@@ -74,9 +74,9 @@ public class EndpointCustomizerFactory {
 			Collection<EndpointCustomizer.TopicNamesHolder> topics = customizeAndRegisterTopics(namesProvider, endpoint);
 			endpoint.setId(namesProvider.getEndpointId(endpoint));
 			endpoint.setGroupId(namesProvider.getGroupId(endpoint));
-			if (endpoint.getTopics().isEmpty() && endpoint.getTopicPartitionsToAssign() != null
-					&& !properties.isMainEndpoint()) {
-				endpoint.setTopicPartitions(getTopicPartitions(properties, namesProvider, endpoint.getTopicPartitionsToAssign()));
+			if (endpoint.getTopics().isEmpty() && endpoint.getTopicPartitionsToAssign() != null) {
+				endpoint.setTopicPartitions(getTopicPartitions(properties, namesProvider,
+						endpoint.getTopicPartitionsToAssign()));
 			}
 			else {
 				endpoint.setTopics(endpoint.getTopics().stream()
@@ -98,10 +98,23 @@ public class EndpointCustomizerFactory {
 													RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider,
 													TopicPartitionOffset[] topicPartitionOffsets) {
 		return Stream.of(topicPartitionOffsets)
-				.map(tpo -> new TopicPartitionOffset(namesProvider.getTopicName(tpo.getTopic()),
-						tpo.getPartition() <= properties.numPartitions() ? tpo.getPartition() : DEFAULT_PARTITION_FOR_MANUAL_ASSIGNMENT,
-						(Long) null))
+				.map(tpo -> properties.isMainEndpoint()
+						? getTPOForMainTopic(namesProvider, tpo)
+						: getTPOForRetryTopics(properties, namesProvider, tpo))
 				.toArray(TopicPartitionOffset[]::new);
+	}
+
+	private static TopicPartitionOffset getTPOForRetryTopics(DestinationTopic.Properties properties, RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider, TopicPartitionOffset tpo) {
+		return new TopicPartitionOffset(namesProvider.getTopicName(tpo.getTopic()),
+				tpo.getPartition() <= properties.numPartitions() ? tpo.getPartition() : DEFAULT_PARTITION_FOR_MANUAL_ASSIGNMENT,
+				(Long) null);
+	}
+
+	private static TopicPartitionOffset getTPOForMainTopic(RetryTopicNamesProviderFactory.RetryTopicNamesProvider namesProvider, TopicPartitionOffset tpo) {
+		TopicPartitionOffset newTpo = new TopicPartitionOffset(namesProvider.getTopicName(tpo.getTopic()),
+				tpo.getPartition(), tpo.getOffset(), tpo.getPosition());
+		newTpo.setRelativeToCurrent(tpo.isRelativeToCurrent());
+		return newTpo;
 	}
 
 	protected Collection<EndpointCustomizer.TopicNamesHolder> customizeAndRegisterTopics(
