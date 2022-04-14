@@ -21,7 +21,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -61,11 +60,9 @@ import org.springframework.util.backoff.BackOff;
  * @author Tomaz Fernandes
  * @since 2.9
 */
-public class RetryTopicConfigurationSupport implements DisposableBean {
+public class RetryTopicConfigurationSupport {
 
 	private final RetryTopicComponentFactory componentFactory = createComponentFactory();
-
-	private DisposableBean disposableBackOffManagerFactory;
 
 	/**
 	 * Return a global {@link RetryTopicConfigurer} for configuring retry topics
@@ -272,7 +269,6 @@ public class RetryTopicConfigurationSupport implements DisposableBean {
 			@Qualifier(KafkaListenerConfigUtils.KAFKA_LISTENER_ENDPOINT_REGISTRY_BEAN_NAME)
 					ListenerContainerRegistry registry) {
 		PartitionPausingBackOffManagerFactory factory = new PartitionPausingBackOffManagerFactory(registry);
-		this.disposableBackOffManagerFactory = factory;
 		return factory.create();
 	}
 
@@ -290,13 +286,6 @@ public class RetryTopicConfigurationSupport implements DisposableBean {
 	@Bean(name = RetryTopicInternalBeanNames.RETRY_TOPIC_BOOTSTRAPPER)
 	RetryTopicBootstrapper retryTopicBootstrapper(ApplicationContext context) {
 		return new RetryTopicBootstrapper(context, context.getAutowireCapableBeanFactory());
-	}
-
-	@Override
-	public void destroy() throws Exception {
-		if (this.disposableBackOffManagerFactory != null) {
-			this.disposableBackOffManagerFactory.destroy();
-		}
 	}
 
 	public static class BlockingRetriesConfigurer {

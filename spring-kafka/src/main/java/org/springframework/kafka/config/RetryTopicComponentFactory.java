@@ -36,7 +36,7 @@ import org.springframework.kafka.retrytopic.RetryTopicNamesProviderFactory;
 import org.springframework.kafka.retrytopic.SuffixingRetryTopicNamesProviderFactory;
 
 /**
- * Provides the component instances that will be used with
+ * Provide the component instances that will be used with
  * {@link RetryTopicConfigurationSupport}. Override any of the methods to provide
  * a different implementation or subclass, then override the
  * {@link RetryTopicConfigurationSupport#createComponentFactory()} method
@@ -50,7 +50,7 @@ public class RetryTopicComponentFactory {
 	private final Clock internalRetryTopicClock = createInternalRetryTopicClock();
 
 	/**
-	 * Creates the {@link RetryTopicConfigurer} that will serve as an entry point
+	 * Create the {@link RetryTopicConfigurer} that will serve as an entry point
 	 * for configuring non-blocking topic-based delayed retries for a given
 	 * {@link KafkaListenerEndpoint} by processing the appropriate
 	 * {@link RetryTopicConfiguration}.
@@ -76,7 +76,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Creates the {@link DestinationTopicProcessor} that will be used to process the
+	 * Create the {@link DestinationTopicProcessor} that will be used to process the
 	 * {@link DestinationTopic} instances and store them in the provided
 	 * {@link DestinationTopicResolver}.
 	 * @param destinationTopicResolver the {@link DestinationTopicResolver}
@@ -88,7 +88,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Creates the instance of {@link DestinationTopicResolver} that will be used to store
+	 * Create the instance of {@link DestinationTopicResolver} that will be used to store
 	 * the {@link DestinationTopic} instances
 	 * and resolve which a given record should be forwarded to.
 	 *
@@ -99,7 +99,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Creates a {@link DeadLetterPublishingRecovererFactory} that will be used to create
+	 * Create a {@link DeadLetterPublishingRecovererFactory} that will be used to create
 	 * the {@link DeadLetterPublishingRecoverer} that will forward the records to a given
 	 * {@link DestinationTopic}.
 	 *
@@ -113,7 +113,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Creates the {@link ListenerContainerFactoryResolver} that will be used to resolve
+	 * Create the {@link ListenerContainerFactoryResolver} that will be used to resolve
 	 * the appropriate {@link KafkaListenerContainerFactory} for a given topic.
 	 *
 	 * @param beanFactory the {@link BeanFactory} that will be used to retrieve the
@@ -125,7 +125,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Creates a {@link ListenerContainerFactoryConfigurer} that will be used to
+	 * Create a {@link ListenerContainerFactoryConfigurer} that will be used to
 	 * configure the {@link KafkaListenerContainerFactory} resolved by the
 	 * {@link ListenerContainerFactoryResolver}.
 	 * @param kafkaConsumerBackoffManager the {@link KafkaConsumerBackoffManager} used
@@ -143,7 +143,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Creates the {@link RetryTopicNamesProviderFactory} instance that will be used
+	 * Create the {@link RetryTopicNamesProviderFactory} instance that will be used
 	 * to provide the property names for the retry topics' {@link KafkaListenerEndpoint}.
 	 * @return the instance.
 	 */
@@ -152,7 +152,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Returns the {@link Clock} instance that will be used for all
+	 * Return the {@link Clock} instance that will be used for all
 	 * time-related operations in the retry topic processes.
 	 * @return the instance.
 	 */
@@ -161,7 +161,7 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Creates a {@link Clock} instance that will be used for all time-related operations
+	 * Create a {@link Clock} instance that will be used for all time-related operations
 	 * in the retry topic processes.
 	 * @return the instance.
 	 */

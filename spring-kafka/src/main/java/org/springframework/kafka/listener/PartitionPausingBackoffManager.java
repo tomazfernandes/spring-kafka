@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.common.TopicPartition;
 
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
@@ -46,7 +47,7 @@ import org.springframework.lang.Nullable;
  * @see DefaultErrorHandler
  */
 public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManager,
-		ApplicationListener<ListenerContainerPartitionIdleEvent> {
+		ApplicationListener<ListenerContainerPartitionIdleEvent>, DisposableBean {
 
 	private static final LogAccessor LOGGER = new LogAccessor(LogFactory.getLog(KafkaConsumerBackoffManager.class));
 
@@ -75,10 +76,7 @@ public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManag
 	public PartitionPausingBackoffManager(ListenerContainerRegistry listenerContainerRegistry,
 										KafkaConsumerTimingAdjuster kafkaConsumerTimingAdjuster) {
 
-		this.listenerContainerRegistry = listenerContainerRegistry;
-		this.kafkaConsumerTimingAdjuster = kafkaConsumerTimingAdjuster;
-		this.clock = Clock.systemUTC();
-		this.backOffContexts = new HashMap<>();
+		this(listenerContainerRegistry, kafkaConsumerTimingAdjuster, Clock.systemUTC());
 	}
 
 	/**
@@ -91,11 +89,7 @@ public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManag
 	 * @param listenerContainerRegistry the listenerContainerRegistry to use.
 	 */
 	public PartitionPausingBackoffManager(ListenerContainerRegistry listenerContainerRegistry) {
-
-		this.listenerContainerRegistry = listenerContainerRegistry;
-		this.kafkaConsumerTimingAdjuster = null;
-		this.clock = Clock.systemUTC();
-		this.backOffContexts = new HashMap<>();
+		this(listenerContainerRegistry, null, Clock.systemUTC());
 	}
 
 	/**
@@ -107,7 +101,7 @@ public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManag
 	 * @param clock the clock to use.
 	 */
 	public PartitionPausingBackoffManager(ListenerContainerRegistry listenerContainerRegistry,
-										KafkaConsumerTimingAdjuster kafkaConsumerTimingAdjuster,
+										@Nullable KafkaConsumerTimingAdjuster kafkaConsumerTimingAdjuster,
 										Clock clock) {
 
 		this.listenerContainerRegistry = listenerContainerRegistry;
@@ -124,11 +118,7 @@ public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManag
 	 * @param clock the clock to use.
 	 */
 	public PartitionPausingBackoffManager(ListenerContainerRegistry listenerContainerRegistry, Clock clock) {
-
-		this.listenerContainerRegistry = listenerContainerRegistry;
-		this.clock = clock;
-		this.kafkaConsumerTimingAdjuster = null;
-		this.backOffContexts = new HashMap<>();
+		this(listenerContainerRegistry, null, clock);
 	}
 
 	/**
@@ -227,6 +217,13 @@ public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManag
 	protected void removeBackoff(TopicPartition topicPartition) {
 		synchronized (this.backOffContexts) {
 			this.backOffContexts.remove(topicPartition);
+		}
+	}
+
+	@Override
+	public void destroy() throws Exception {
+		if (this.kafkaConsumerTimingAdjuster instanceof DisposableBean) {
+			((DisposableBean) this.kafkaConsumerTimingAdjuster).destroy();
 		}
 	}
 }

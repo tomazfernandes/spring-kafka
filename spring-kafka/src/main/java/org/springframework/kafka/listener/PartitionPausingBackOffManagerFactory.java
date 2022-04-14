@@ -18,9 +18,7 @@ package org.springframework.kafka.listener;
 
 import java.time.Clock;
 
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.Assert;
 
 /**
@@ -31,8 +29,7 @@ import org.springframework.util.Assert;
  * @author Tomaz Fernandes
  * @since 2.7
  */
-public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffManagerFactory
-		implements DisposableBean {
+public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffManagerFactory {
 
 	private boolean timingAdjustmentEnabled = true;
 
@@ -150,24 +147,9 @@ public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffM
 		if (this.timingAdjustmentManager != null) {
 			return this.timingAdjustmentManager;
 		}
-		return new WakingKafkaConsumerTimingAdjuster(getOrCreateTimingAdjustmentThreadExecutor());
+		return this.taskExecutor != null
+				? new WakingKafkaConsumerTimingAdjuster(this.taskExecutor)
+				: new WakingKafkaConsumerTimingAdjuster();
 	}
 
-	private TaskExecutor getOrCreateTimingAdjustmentThreadExecutor() {
-		if (this.taskExecutor != null) {
-			return this.taskExecutor;
-		}
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.initialize();
-		this.taskExecutor = executor;
-		return executor;
-	}
-
-	@Override
-	public void destroy() throws Exception {
-		if (this.taskExecutor != null
-				&& ThreadPoolTaskExecutor.class.isAssignableFrom(this.taskExecutor.getClass())) {
-			((ThreadPoolTaskExecutor) this.taskExecutor).shutdown();
-		}
-	}
 }

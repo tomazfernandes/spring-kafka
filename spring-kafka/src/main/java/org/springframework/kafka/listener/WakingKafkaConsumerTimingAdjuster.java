@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 the original author or authors.
+ * Copyright 2018-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,11 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.TopicPartition;
 
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.retry.backoff.Sleeper;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.Assert;
 
 
@@ -39,7 +41,7 @@ import org.springframework.util.Assert;
  * @since 2.7
  * @see KafkaConsumerBackoffManager
  */
-public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdjuster {
+public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdjuster, DisposableBean {
 
 	private static final LogAccessor LOGGER =
 			new LogAccessor(LogFactory.getLog(WakingKafkaConsumerTimingAdjuster.class));
@@ -58,6 +60,11 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 
 	private final Sleeper sleeper;
 
+	/**
+	 * Create an instance with the provided TaskExecutor and Sleeper.
+	 * @param timingAdjustmentTaskExecutor the task executor.
+	 * @param sleeper the sleeper.
+	 */
 	public WakingKafkaConsumerTimingAdjuster(TaskExecutor timingAdjustmentTaskExecutor, Sleeper sleeper) {
 		Assert.notNull(timingAdjustmentTaskExecutor, "Task executor cannot be null.");
 		Assert.notNull(sleeper, "Sleeper cannot be null.");
@@ -65,10 +72,19 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 		this.sleeper = sleeper;
 	}
 
+	/**
+	 * Create an instance with the provided TaskExecutor and a thread sleeper.
+	 * @param timingAdjustmentTaskExecutor the task executor.
+	 */
 	public WakingKafkaConsumerTimingAdjuster(TaskExecutor timingAdjustmentTaskExecutor) {
-		Assert.notNull(timingAdjustmentTaskExecutor, "Task executor cannot be null.");
-		this.timingAdjustmentTaskExecutor = timingAdjustmentTaskExecutor;
-		this.sleeper = Thread::sleep;
+		this(timingAdjustmentTaskExecutor, Thread::sleep);
+	}
+
+	/**
+	 * Create an instance with the default TaskExecutor and a thread sleeper.
+	 */
+	public WakingKafkaConsumerTimingAdjuster() {
+		this(createTaskExecutor(), Thread::sleep);
 	}
 
 	/**
@@ -136,6 +152,20 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 		catch (Exception e) { // NOSONAR
 			LOGGER.error(e, () -> "Error waking up consumer while applying timing adjustment " +
 					"for TopicPartition " + topicPartition);
+		}
+	}
+
+	private static TaskExecutor createTaskExecutor() {
+		ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
+		taskExecutor.initialize();
+		return taskExecutor;
+	}
+
+	@Override
+	public void destroy() throws Exception {
+		if (this.timingAdjustmentTaskExecutor != null
+				&& this.timingAdjustmentTaskExecutor instanceof ThreadPoolTaskExecutor) {
+			((ThreadPoolTaskExecutor) this.timingAdjustmentTaskExecutor).shutdown();
 		}
 	}
 }
