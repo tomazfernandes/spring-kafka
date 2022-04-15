@@ -16,9 +16,10 @@
 
 package org.springframework.kafka.config;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -29,6 +30,7 @@ import org.springframework.kafka.annotation.EnableRetryTopic;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.ExceptionClassifier;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.ListenerContainerRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
@@ -193,11 +195,11 @@ public class RetryTopicConfigurationSupport {
 	}
 
 	/**
-	 * Override this method to configure non-blocking retries parameters
-	 * such as fatal exceptions.
-	 * @param nonBlockingRetries a {@link NonBlockingRetriesConfigurer}.
+	 * Override this method to manage non-blocking retries fatal exceptions.
+	 * @param nonBlockingRetriesExceptions a {@link List} of fatal exceptions
+	 * containing the default ones.
 	 */
-	protected void configureNonBlockingRetries(NonBlockingRetriesConfigurer nonBlockingRetries) {
+	protected void manageNonBlockingRetriesFatalExceptions(List<Class<? extends Throwable>> nonBlockingRetriesExceptions) {
 	}
 
 	/**
@@ -217,7 +219,7 @@ public class RetryTopicConfigurationSupport {
 	 * To configure it, consider overriding one of these other more
 	 * fine-grained methods:
 	 * <ul>
-	 * <li>{@link #configureNonBlockingRetries} for configuring non-blocking retries.
+	 * <li>{@link #manageNonBlockingRetriesFatalExceptions} for configuring non-blocking retries.
 	 * <li>{@link #customizeDestinationTopicResolver} for further customizing the component.
 	 * <li>{@link #createComponentFactory} for providing a subclass instance.
 	 * </ul>
@@ -229,17 +231,11 @@ public class RetryTopicConfigurationSupport {
 		DestinationTopicResolver destinationTopicResolver = this.componentFactory.destinationTopicResolver();
 		if (destinationTopicResolver instanceof DefaultDestinationTopicResolver) {
 			DefaultDestinationTopicResolver ddtr = (DefaultDestinationTopicResolver) destinationTopicResolver;
-			NonBlockingRetriesConfigurer configurer = new NonBlockingRetriesConfigurer();
-			configureNonBlockingRetries(configurer);
-			if (configurer.clearDefaultFatalExceptions) {
-				ddtr.setClassifications(new HashMap<>(), true);
-			}
-			if (configurer.addToFatalExceptions != null) {
-				Stream.of(configurer.addToFatalExceptions).forEach(ddtr::addNotRetryableExceptions);
-			}
-			if (configurer.removeFromFatalExceptions != null) {
-				Stream.of(configurer.removeFromFatalExceptions).forEach(ddtr::removeClassification);
-			}
+			List<Class<? extends Throwable>> fatalExceptions =
+					new ArrayList<>(ExceptionClassifier.defaultFatalExceptionsList());
+			manageNonBlockingRetriesFatalExceptions(fatalExceptions);
+			ddtr.setClassifications(fatalExceptions.stream()
+					.collect(Collectors.toMap(ex -> ex, ex -> false)), true);
 		}
 		Consumer<DestinationTopicResolver> resolverConsumer = customizeDestinationTopicResolver();
 		Assert.notNull(resolverConsumer, "customizeDestinationTopicResolver must not return null");
@@ -303,33 +299,6 @@ public class RetryTopicConfigurationSupport {
 
 		public BlockingRetriesConfigurer backOff(BackOff backoff) {
 			this.backOff = backoff;
-			return this;
-		}
-	}
-
-	@SuppressWarnings("varargs")
-	public static class NonBlockingRetriesConfigurer {
-
-		private Class<? extends Exception>[] addToFatalExceptions;
-
-		private Class<? extends Exception>[] removeFromFatalExceptions;
-
-		private boolean clearDefaultFatalExceptions = false;
-
-		@SafeVarargs
-		public final NonBlockingRetriesConfigurer addToFatalExceptions(Class<? extends Exception>... exceptions) {
-			this.addToFatalExceptions = exceptions;
-			return this;
-		}
-
-		@SafeVarargs
-		public final NonBlockingRetriesConfigurer removeFromFatalExceptions(Class<? extends Exception>... exceptions) {
-			this.removeFromFatalExceptions = exceptions;
-			return this;
-		}
-
-		public NonBlockingRetriesConfigurer clearDefaultFatalExceptions() {
-			this.clearDefaultFatalExceptions = true;
 			return this;
 		}
 	}

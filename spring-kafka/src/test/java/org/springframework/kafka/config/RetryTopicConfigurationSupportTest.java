@@ -25,11 +25,13 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.support.GenericApplicationContext;
@@ -47,6 +49,7 @@ import org.springframework.kafka.retrytopic.ListenerContainerFactoryConfigurer;
 import org.springframework.kafka.retrytopic.ListenerContainerFactoryResolver;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.retrytopic.RetryTopicNamesProviderFactory;
+import org.springframework.kafka.support.converter.ConversionException;
 import org.springframework.util.backoff.BackOff;
 
 /**
@@ -204,10 +207,8 @@ class RetryTopicConfigurationSupportTest {
 			}
 
 			@Override
-			protected void configureNonBlockingRetries(NonBlockingRetriesConfigurer nonBlockingRetries) {
-				nonBlockingRetries
-						.clearDefaultFatalExceptions()
-						.removeFromFatalExceptions(IllegalStateException.class);
+			protected void manageNonBlockingRetriesFatalExceptions(List<Class<? extends Throwable>> nonBlockingRetries) {
+				nonBlockingRetries.remove(ConversionException.class);
 			}
 		};
 
@@ -215,9 +216,9 @@ class RetryTopicConfigurationSupportTest {
 		assertThat(resolver).isEqualTo(resolverMock);
 
 		then(dtrConsumer).should().accept(resolverMock);
-		then(resolverMock).should().removeClassification(IllegalStateException.class);
-		then(resolverMock).should().setClassifications(any(Map.class), eq(true));
-
+		ArgumentCaptor<Map<Class<? extends Throwable>, Boolean>> captor = ArgumentCaptor.forClass(Map.class);
+		then(resolverMock).should().setClassifications(captor.capture(), eq(true));
+		assertThat(captor.getValue()).doesNotContainKey(ConversionException.class);
 	}
 
 	@Test

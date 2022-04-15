@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +41,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.annotation.EnableRetryTopic;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -393,9 +393,8 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 		}
 
 		@Override
-		protected void configureNonBlockingRetries(NonBlockingRetriesConfigurer nonBlockingRetries) {
-			nonBlockingRetries
-					.addToFatalExceptions(ShouldSkipBothRetriesException.class);
+		protected void manageNonBlockingRetriesFatalExceptions(List<Class<? extends Throwable>> nonBlockingFatalExceptions) {
+			nonBlockingFatalExceptions.add(ShouldSkipBothRetriesException.class);
 		}
 	}
 
@@ -427,7 +426,6 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 	}
 
 	@EnableKafka
-	@EnableRetryTopic
 	@Import(RoutingTestsConfigurationSupport.class)
 	@Configuration
 	public static class KafkaConsumerConfig {
