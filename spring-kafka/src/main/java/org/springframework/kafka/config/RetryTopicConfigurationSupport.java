@@ -130,9 +130,9 @@ public class RetryTopicConfigurationSupport {
 					.setDeadLetterPublishingRecovererCustomizer(customizersConfigurer
 							.deadLetterPublishingRecovererCustomizer);
 		}
-		Consumer<DeadLetterPublishingRecovererFactory> dlprConsumer = configureDeadLetterPublishingContainerFactory();
-		Assert.notNull(dlprConsumer, "configureDeadLetterPublishingContainerFactory must not return null");
-		dlprConsumer.accept(deadLetterPublishingRecovererFactory);
+		Consumer<DeadLetterPublishingRecovererFactory> dlprfConsumer = configureDeadLetterPublishingContainerFactory();
+		Assert.notNull(dlprfConsumer, "configureDeadLetterPublishingContainerFactory must not return null");
+		dlprfConsumer.accept(deadLetterPublishingRecovererFactory);
 	}
 
 	/**
@@ -243,6 +243,7 @@ public class RetryTopicConfigurationSupport {
 		}
 		Consumer<DestinationTopicResolver> resolverConsumer = customizeDestinationTopicResolver();
 		Assert.notNull(resolverConsumer, "customizeDestinationTopicResolver must not return null");
+		resolverConsumer.accept(destinationTopicResolver);
 		return destinationTopicResolver;
 	}
 
@@ -268,8 +269,7 @@ public class RetryTopicConfigurationSupport {
 	public KafkaConsumerBackoffManager kafkaConsumerBackoffManager(
 			@Qualifier(KafkaListenerConfigUtils.KAFKA_LISTENER_ENDPOINT_REGISTRY_BEAN_NAME)
 					ListenerContainerRegistry registry) {
-		PartitionPausingBackOffManagerFactory factory = new PartitionPausingBackOffManagerFactory(registry);
-		return factory.create();
+		return this.componentFactory.kafkaBackOffManagerFactory(registry).create();
 	}
 
 	/**
@@ -324,12 +324,13 @@ public class RetryTopicConfigurationSupport {
 
 		@SafeVarargs
 		public final NonBlockingRetriesConfigurer removeFromFatalExceptions(Class<? extends Exception>... exceptions) {
-			this.addToFatalExceptions = exceptions;
+			this.removeFromFatalExceptions = exceptions;
 			return this;
 		}
 
-		public void clearDefaultFatalExceptions() {
+		public NonBlockingRetriesConfigurer clearDefaultFatalExceptions() {
 			this.clearDefaultFatalExceptions = true;
+			return this;
 		}
 	}
 

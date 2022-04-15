@@ -20,7 +20,11 @@ import java.time.Clock;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.KafkaBackOffManagerFactory;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
+import org.springframework.kafka.listener.ListenerContainerRegistry;
+import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
 import org.springframework.kafka.listener.adapter.KafkaBackoffAwareMessageListenerAdapter;
 import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory;
 import org.springframework.kafka.retrytopic.DefaultDestinationTopicProcessor;
@@ -150,6 +154,18 @@ public class RetryTopicComponentFactory {
 	public RetryTopicNamesProviderFactory retryTopicNamesProviderFactory() {
 		return new SuffixingRetryTopicNamesProviderFactory();
 	}
+
+	/**
+	 * Create the {@link KafkaBackOffManagerFactory} that will be used to create the
+	 * {@link KafkaConsumerBackoffManager} instance used to back off the partitions.
+	 * @param registry the {@link ListenerContainerRegistry} used to fetch the
+	 * {@link MessageListenerContainer}.
+	 * @return the instance.
+	 */
+	public KafkaBackOffManagerFactory kafkaBackOffManagerFactory(ListenerContainerRegistry registry) {
+		return new PartitionPausingBackOffManagerFactory(registry);
+	}
+
 
 	/**
 	 * Return the {@link Clock} instance that will be used for all
