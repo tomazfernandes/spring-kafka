@@ -22,11 +22,9 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.TopicPartition;
 
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.retry.backoff.Sleeper;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.Assert;
 
 
@@ -41,7 +39,7 @@ import org.springframework.util.Assert;
  * @since 2.7
  * @see KafkaConsumerBackoffManager
  */
-public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdjuster, DisposableBean {
+public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdjuster {
 
 	private static final LogAccessor LOGGER =
 			new LogAccessor(LogFactory.getLog(WakingKafkaConsumerTimingAdjuster.class));
@@ -56,40 +54,33 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 
 	private int pollTimeoutsForAdjustmentWindow = DEFAULT_POLL_TIMEOUTS_FOR_ADJUSTMENT_WINDOW;
 
-	private final TaskExecutor timingAdjustmentTaskExecutor;
+	private TaskExecutor taskExecutor;
 
 	private final Sleeper sleeper;
 
 	/**
 	 * Create an instance with the provided TaskExecutor and Sleeper.
-	 * @param timingAdjustmentTaskExecutor the task executor.
+	 * @param taskExecutor the task executor.
 	 * @param sleeper the sleeper.
 	 */
-	public WakingKafkaConsumerTimingAdjuster(TaskExecutor timingAdjustmentTaskExecutor, Sleeper sleeper) {
-		Assert.notNull(timingAdjustmentTaskExecutor, "Task executor cannot be null.");
+	public WakingKafkaConsumerTimingAdjuster(TaskExecutor taskExecutor, Sleeper sleeper) {
+		Assert.notNull(taskExecutor, "Task executor cannot be null.");
 		Assert.notNull(sleeper, "Sleeper cannot be null.");
-		this.timingAdjustmentTaskExecutor = timingAdjustmentTaskExecutor;
+		this.taskExecutor = taskExecutor;
 		this.sleeper = sleeper;
 	}
 
 	/**
 	 * Create an instance with the provided TaskExecutor and a thread sleeper.
-	 * @param timingAdjustmentTaskExecutor the task executor.
+	 * @param taskExecutor the task executor.
 	 */
-	public WakingKafkaConsumerTimingAdjuster(TaskExecutor timingAdjustmentTaskExecutor) {
-		this(timingAdjustmentTaskExecutor, Thread::sleep);
-	}
-
-	/**
-	 * Create an instance with the default TaskExecutor and a thread sleeper.
-	 */
-	public WakingKafkaConsumerTimingAdjuster() {
-		this(createTaskExecutor(), Thread::sleep);
+	public WakingKafkaConsumerTimingAdjuster(TaskExecutor taskExecutor) {
+		this(taskExecutor, Thread::sleep);
 	}
 
 	/**
 	 *
-	 * Sets how many pollTimeouts prior to the dueTimeout the adjustment will take place.
+	 * Set how many pollTimeouts prior to the dueTimeout the adjustment will take place.
 	 * Default is 2.
 	 *
 	 * @param pollTimeoutsForAdjustmentWindow the amount of pollTimeouts in the adjustment window.
@@ -100,7 +91,7 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 
 	/**
 	 *
-	 * Sets the threshold for the timing adjustment to take place. If the time difference between
+	 * Set the threshold for the timing adjustment to take place. If the time difference between
 	 * the probable instant the message will be consumed and the instant it should is lower than
 	 * this value, no adjustment will be applied.
 	 * Default is 100ms.
@@ -112,7 +103,7 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 	}
 
 	/**
-	 * Adjusts the timing with the provided parameters.
+	 * Adjust the timing with the provided parameters.
 	 *
 	 * @param consumerToAdjust the {@link Consumer} that will be adjusted
 	 * @param topicPartition the {@link TopicPartition} that will be adjusted
@@ -128,7 +119,7 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 
 		long adjustmentAmount = timeUntilDue % pollTimeout;
 		if (isInAdjustmentWindow && adjustmentAmount > this.timingAdjustmentThreshold.toMillis()) {
-			this.timingAdjustmentTaskExecutor.execute(() ->
+			this.taskExecutor.execute(() ->
 					doApplyTimingAdjustment(consumerToAdjust, topicPartition, adjustmentAmount));
 			return adjustmentAmount;
 		}
@@ -155,17 +146,4 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 		}
 	}
 
-	private static TaskExecutor createTaskExecutor() {
-		ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
-		taskExecutor.initialize();
-		return taskExecutor;
-	}
-
-	@Override
-	public void destroy() throws Exception {
-		if (this.timingAdjustmentTaskExecutor != null
-				&& this.timingAdjustmentTaskExecutor instanceof ThreadPoolTaskExecutor) {
-			((ThreadPoolTaskExecutor) this.timingAdjustmentTaskExecutor).shutdown();
-		}
-	}
 }

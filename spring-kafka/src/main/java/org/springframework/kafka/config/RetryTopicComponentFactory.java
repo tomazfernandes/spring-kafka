@@ -19,9 +19,11 @@ package org.springframework.kafka.config;
 import java.time.Clock;
 
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.KafkaBackOffManagerFactory;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
+import org.springframework.kafka.listener.KafkaConsumerTimingAdjuster;
 import org.springframework.kafka.listener.ListenerContainerRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
@@ -38,6 +40,7 @@ import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.retrytopic.RetryTopicNamesProviderFactory;
 import org.springframework.kafka.retrytopic.SuffixingRetryTopicNamesProviderFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
  * Provide the component instances that will be used with
@@ -166,6 +169,14 @@ public class RetryTopicComponentFactory {
 		return new PartitionPausingBackOffManagerFactory(registry);
 	}
 
+	/**
+	 * Create the {@link TaskExecutor} that will be used in the
+	 * {@link KafkaConsumerTimingAdjuster}.
+	 * @return the task executor.
+	 */
+	public TaskExecutor taskExecutor() {
+		return new ThreadPoolTaskExecutor();
+	}
 
 	/**
 	 * Return the {@link Clock} instance that will be used for all

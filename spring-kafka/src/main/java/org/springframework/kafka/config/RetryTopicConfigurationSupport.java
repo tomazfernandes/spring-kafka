@@ -16,6 +16,7 @@
 
 package org.springframework.kafka.config;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -26,15 +27,20 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.annotation.EnableRetryTopic;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.ExceptionClassifier;
+import org.springframework.kafka.listener.KafkaBackOffManagerFactory;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
+import org.springframework.kafka.listener.KafkaConsumerTimingAdjuster;
 import org.springframework.kafka.listener.ListenerContainerRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
+import org.springframework.kafka.listener.WakingKafkaConsumerTimingAdjuster;
 import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory;
 import org.springframework.kafka.retrytopic.DefaultDestinationTopicResolver;
 import org.springframework.kafka.retrytopic.DestinationTopicProcessor;
@@ -46,8 +52,10 @@ import org.springframework.kafka.retrytopic.RetryTopicBootstrapper;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
 import org.springframework.kafka.retrytopic.RetryTopicNamesProviderFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.Assert;
 import org.springframework.util.backoff.BackOff;
+import org.springframework.util.backoff.FixedBackOff;
 
 /**
  * This is the main class providing the configuration behind the non-blocking,
@@ -65,6 +73,9 @@ import org.springframework.util.backoff.BackOff;
 public class RetryTopicConfigurationSupport {
 
 	private final RetryTopicComponentFactory componentFactory = createComponentFactory();
+
+	private static final String BACK_OFF_MANAGER_THREAD_EXECUTOR_BEAN_NAME = "backOffManagerThreadExecutor";
+	private static final int NOT_SET = -1;
 
 	/**
 	 * Return a global {@link RetryTopicConfigurer} for configuring retry topics
@@ -253,24 +264,79 @@ public class RetryTopicConfigurationSupport {
 	}
 
 	/**
-	 * Provides the {@link KafkaConsumerBackoffManager} instance.
-	 * Override this method to provide a customized implementation.
-	 * A {@link PartitionPausingBackOffManagerFactory} can be used for that purpose,
-	 * or a different implementation can be provided.
+	 * Create the {@link KafkaConsumerBackoffManager} instance that will be used to
+	 * back off partitions.
+	 * To configure it, override the {@link #configureKafkaBackOffManager} method.
+	 * To provide a different implementation, either override this method, or
+	 * override the {@link RetryTopicComponentFactory#kafkaBackOffManagerFactory} method
+	 * and return a different {@link KafkaBackOffManagerFactory}.
 	 * @param registry the {@link ListenerContainerRegistry} to be used to fetch the
 	 * {@link MessageListenerContainer} to be backed off.
+	 * @param taskExecutor the {@link TaskExecutor} to be used with the
+	 * {@link KafkaConsumerTimingAdjuster}.
 	 * @return the instance.
 	 */
 	@Bean(name = KafkaListenerConfigUtils.KAFKA_CONSUMER_BACK_OFF_MANAGER_BEAN_NAME)
 	public KafkaConsumerBackoffManager kafkaConsumerBackoffManager(
 			@Qualifier(KafkaListenerConfigUtils.KAFKA_LISTENER_ENDPOINT_REGISTRY_BEAN_NAME)
-					ListenerContainerRegistry registry) {
-		return this.componentFactory.kafkaBackOffManagerFactory(registry).create();
+					ListenerContainerRegistry registry,
+			@Qualifier(BACK_OFF_MANAGER_THREAD_EXECUTOR_BEAN_NAME) TaskExecutor taskExecutor) {
+
+		KafkaBackOffManagerFactory backOffManagerFactory =
+				this.componentFactory.kafkaBackOffManagerFactory(registry);
+		if (backOffManagerFactory instanceof PartitionPausingBackOffManagerFactory) {
+			configurePartitionPausingFactory(taskExecutor,
+					(PartitionPausingBackOffManagerFactory) backOffManagerFactory);
+		}
+		return backOffManagerFactory.create();
+	}
+
+	private void configurePartitionPausingFactory(TaskExecutor taskExecutor,
+												PartitionPausingBackOffManagerFactory factory) {
+		KafkaBackOffManagerConfigurer configurer = new KafkaBackOffManagerConfigurer();
+		configureKafkaBackOffManager(configurer);
+		factory.setTimingAdjustmentEnabled(configurer.timingAdjustmentEnabled);
+		if (configurer.timingAdjustmentEnabled) {
+			factory.setTaskExecutor(taskExecutor);
+			if (configurer.maxThreadPoolSize != NOT_SET) {
+				Assert.isInstanceOf(ThreadPoolTaskExecutor.class, taskExecutor,
+						() -> "TaskExecutor must be an instance of ThreadPoolTaskExecutor to set maxThreadPoolSize");
+				((ThreadPoolTaskExecutor) taskExecutor).setMaxPoolSize(configurer.maxThreadPoolSize);
+			}
+		}
+		if (configurer.clock != null) {
+			factory.setClock(configurer.clock);
+		}
 	}
 
 	/**
-	 * Override this method if you want to provide a subclass
-	 * of {@link RetryTopicComponentFactory} with different
+	 * Create the {@link TaskExecutor} instance that will be used with
+	 * the {@link WakingKafkaConsumerTimingAdjuster} if
+	 * A {@link PartitionPausingBackOffManagerFactory} can be used for that purpose,
+	 * or a different implementation can be provided.
+	 * {@link MessageListenerContainer} to be backed off.
+	 * @return the instance.
+	 */
+	@Bean(name = BACK_OFF_MANAGER_THREAD_EXECUTOR_BEAN_NAME)
+	public TaskExecutor backoffManagerTaskExecutor() {
+		KafkaBackOffManagerConfigurer configurer = new KafkaBackOffManagerConfigurer();
+		configureKafkaBackOffManager(configurer);
+		return configurer.timingAdjustmentEnabled
+				? this.componentFactory.taskExecutor()
+				: task -> {
+				};
+	}
+
+	/**
+	 * Override this method to configure the {@link KafkaConsumerBackoffManager}.
+	 * @param backOffManagerConfigurer a {@link KafkaBackOffManagerConfigurer}.
+	 */
+	protected void configureKafkaBackOffManager(KafkaBackOffManagerConfigurer backOffManagerConfigurer) {
+	}
+
+	/**
+	 * Override this method to provide a subclass of
+	 * {@link RetryTopicComponentFactory} with different
 	 * component implementations or subclasses.
 	 * @return the instance.
 	 */
@@ -284,12 +350,21 @@ public class RetryTopicConfigurationSupport {
 		return new RetryTopicBootstrapper(context, context.getAutowireCapableBeanFactory());
 	}
 
+	/**
+	 * Configure blocking retries to be used along non-blocking.
+	 */
 	public static class BlockingRetriesConfigurer {
 
 		private BackOff backOff;
 
 		private Class<? extends Exception>[] retryableExceptions;
 
+		/**
+		 * Set the exceptions that should be retried by the blocking retry mechanism.
+		 * @param exceptions the exceptions.
+		 * @return the configurer.
+		 * @see DefaultErrorHandler
+		 */
 		@SuppressWarnings("varargs")
 		@SafeVarargs
 		public final BlockingRetriesConfigurer retryOn(Class<? extends Exception>... exceptions) {
@@ -297,29 +372,110 @@ public class RetryTopicConfigurationSupport {
 			return this;
 		}
 
+		/**
+		 * Set the {@link BackOff} that should be used with the blocking retry mechanism.
+		 * By default, a {@link FixedBackOff} with 0 delay and 9 retry attempts
+		 * is configured. Note that this only has any effect for exceptions specified
+		 * with the {@link #retryOn} method - by default blocking retries are disabled.
+		 * @param backoff the {@link BackOff} instance.
+		 * @return the configurer.
+		 * @see DefaultErrorHandler
+		 */
 		public BlockingRetriesConfigurer backOff(BackOff backoff) {
 			this.backOff = backoff;
 			return this;
 		}
 	}
 
+	/**
+	 * Configure the {@link KafkaConsumerBackoffManager} instance.
+	 */
+	public static class KafkaBackOffManagerConfigurer {
+
+		boolean timingAdjustmentEnabled = true;
+
+		private int maxThreadPoolSize = NOT_SET;
+
+		private Clock clock;
+
+		/**
+		 * Disable timing adjustment for the delays. With this option records won't be
+		 * processed exactly at the proper time. It's guaranteed however that records
+		 * won't be processed before their due time.
+		 * @return the configurer.
+		 * @see WakingKafkaConsumerTimingAdjuster
+		 */
+		public KafkaBackOffManagerConfigurer disableTimingAdjustment() {
+			this.timingAdjustmentEnabled = false;
+			return this;
+		}
+
+		/**
+		 * Set the maximum thread pool size to be used by the
+		 * {@link WakingKafkaConsumerTimingAdjuster}. This
+		 * {@link KafkaConsumerTimingAdjuster} implementation spawns threads that will
+		 * sleep for a calculated time, and after that will
+		 * {@link org.apache.kafka.clients.consumer.Consumer#wakeup()} the consumer, in
+		 * order to improve delay precision.
+		 * @param maxThreadPoolSize the maximum thread pool size.
+		 * @return the configurer.
+		 */
+		public KafkaBackOffManagerConfigurer setMaxThreadPoolSize(int maxThreadPoolSize) {
+			this.maxThreadPoolSize = maxThreadPoolSize;
+			return this;
+		}
+
+		/**
+		 * Set the {@link Clock} instance to be used with the
+		 * {@link KafkaConsumerBackoffManager}.
+		 * @param clock the clock instance.
+		 * @return the configurer.
+		 */
+		public KafkaBackOffManagerConfigurer setClock(Clock clock) {
+			this.clock = clock;
+			return this;
+		}
+	}
+
+	/**
+	 * Configure customizers for components instantiated by the retry topics feature.
+	 */
 	public static class CustomizersConfigurer {
 
 		private Consumer<CommonErrorHandler> errorHandlerCustomizer;
 		private Consumer<ConcurrentMessageListenerContainer<?, ?>> listenerContainerCustomizer;
 		private Consumer<DeadLetterPublishingRecoverer> deadLetterPublishingRecovererCustomizer;
 
-		protected CustomizersConfigurer customizeErrorHandler(Consumer<CommonErrorHandler> errorHandlerCustomizer) {
+		/**
+		 * Customize the {@link CommonErrorHandler} instances that will be used for the
+		 * feature.
+		 * @param errorHandlerCustomizer the customizer.
+		 * @return the configurer.
+		 * @see DefaultErrorHandler
+		 */
+		public CustomizersConfigurer customizeErrorHandler(Consumer<CommonErrorHandler> errorHandlerCustomizer) {
 			this.errorHandlerCustomizer = errorHandlerCustomizer;
 			return this;
 		}
 
-		protected CustomizersConfigurer customizeListenerContainer(Consumer<ConcurrentMessageListenerContainer<?, ?>> listenerContainerCustomizer) {
+		/**
+		 * Customize the {@link ConcurrentMessageListenerContainer} instances created
+		 * for the retry and DLT consumers.
+		 * @param listenerContainerCustomizer the customizer.
+		 * @return the configurer.
+		 */
+		public CustomizersConfigurer customizeListenerContainer(Consumer<ConcurrentMessageListenerContainer<?, ?>> listenerContainerCustomizer) {
 			this.listenerContainerCustomizer = listenerContainerCustomizer;
 			return this;
 		}
 
-		protected CustomizersConfigurer customizeDeadLetterPublishingRecoverer(Consumer<DeadLetterPublishingRecoverer> dlprCustomizer) {
+		/**
+		 * Customize the {@link DeadLetterPublishingRecoverer} that will be used to
+		 * forward the records to the retry topics and DLT.
+		 * @param dlprCustomizer the customizer.
+		 * @return the configurer.
+		 */
+		public CustomizersConfigurer customizeDeadLetterPublishingRecoverer(Consumer<DeadLetterPublishingRecoverer> dlprCustomizer) {
 			this.deadLetterPublishingRecovererCustomizer = dlprCustomizer;
 			return this;
 		}

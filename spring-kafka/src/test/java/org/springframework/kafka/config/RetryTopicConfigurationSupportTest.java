@@ -18,11 +18,11 @@ package org.springframework.kafka.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 
 import java.time.Clock;
 import java.util.List;
@@ -30,17 +30,18 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
-
 import org.mockito.ArgumentCaptor;
+
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.listener.KafkaBackOffManagerFactory;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
 import org.springframework.kafka.listener.ListenerContainerRegistry;
+import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
 import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory;
 import org.springframework.kafka.retrytopic.DefaultDestinationTopicResolver;
 import org.springframework.kafka.retrytopic.DestinationTopicProcessor;
@@ -50,6 +51,7 @@ import org.springframework.kafka.retrytopic.ListenerContainerFactoryResolver;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.retrytopic.RetryTopicNamesProviderFactory;
 import org.springframework.kafka.support.converter.ConversionException;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.backoff.BackOff;
 
 /**
@@ -161,29 +163,113 @@ class RetryTopicConfigurationSupportTest {
 	void testCreateBackOffManager() {
 		ListenerContainerRegistry registry = mock(ListenerContainerRegistry.class);
 		RetryTopicComponentFactory componentFactory = mock(RetryTopicComponentFactory.class);
-		KafkaBackOffManagerFactory factory = mock(KafkaBackOffManagerFactory.class);
+		PartitionPausingBackOffManagerFactory factory = mock(PartitionPausingBackOffManagerFactory.class);
 		KafkaConsumerBackoffManager backoffManagerMock = mock(KafkaConsumerBackoffManager.class);
+		ThreadPoolTaskExecutor taskExecutorMock = mock(ThreadPoolTaskExecutor.class);
+		Clock clock = mock(Clock.class);
 		given(componentFactory.kafkaBackOffManagerFactory(registry)).willReturn(factory);
 		given(factory.create()).willReturn(backoffManagerMock);
+		RetryTopicConfigurationSupport support = new RetryTopicConfigurationSupport() {
+			@Override
+			protected void configureKafkaBackOffManager(KafkaBackOffManagerConfigurer configurer) {
+				configurer
+						.setMaxThreadPoolSize(10)
+						.setClock(clock);
+			}
 
+			@Override
+			protected RetryTopicComponentFactory createComponentFactory() {
+				return componentFactory;
+			}
+		};
+		KafkaConsumerBackoffManager backoffManager = support.kafkaConsumerBackoffManager(registry, taskExecutorMock);
+		assertThat(backoffManager).isEqualTo(backoffManagerMock);
+		then(componentFactory).should().kafkaBackOffManagerFactory(registry);
+		then(factory).should().create();
+		then(factory).should().setTaskExecutor(taskExecutorMock);
+		then(factory).should().setClock(clock);
+		then(taskExecutorMock).should().setMaxPoolSize(10);
+	}
+
+	@Test
+	void testCreateBackOffManagerWithDisableTimingAdjustment() {
+		ListenerContainerRegistry registry = mock(ListenerContainerRegistry.class);
+		RetryTopicComponentFactory componentFactory = mock(RetryTopicComponentFactory.class);
+		PartitionPausingBackOffManagerFactory factory = mock(PartitionPausingBackOffManagerFactory.class);
+		KafkaConsumerBackoffManager backoffManagerMock = mock(KafkaConsumerBackoffManager.class);
+		ThreadPoolTaskExecutor taskExecutorMock = mock(ThreadPoolTaskExecutor.class);
+		given(componentFactory.kafkaBackOffManagerFactory(registry)).willReturn(factory);
+		given(factory.create()).willReturn(backoffManagerMock);
+		RetryTopicConfigurationSupport support = new RetryTopicConfigurationSupport() {
+
+			@Override
+			protected void configureKafkaBackOffManager(KafkaBackOffManagerConfigurer configurer) {
+				configurer
+						.disableTimingAdjustment();
+			}
+
+			@Override
+			protected RetryTopicComponentFactory createComponentFactory() {
+				return componentFactory;
+			}
+		};
+		KafkaConsumerBackoffManager backoffManager = support.kafkaConsumerBackoffManager(registry, taskExecutorMock);
+		assertThat(backoffManager).isEqualTo(backoffManagerMock);
+		then(componentFactory).should().kafkaBackOffManagerFactory(registry);
+		then(factory).should().create();
+		then(factory).should().setTimingAdjustmentEnabled(false);
+		then(factory).should(never()).setTaskExecutor(taskExecutorMock);
+	}
+
+	@Test
+	void testCreatesTaskExecutorIfTimingAdjustmentEnabled() {
+		RetryTopicComponentFactory componentFactory = mock(RetryTopicComponentFactory.class);
+		ThreadPoolTaskExecutor taskExecutorMock = mock(ThreadPoolTaskExecutor.class);
+		given(componentFactory.taskExecutor()).willReturn(taskExecutorMock);
 		RetryTopicConfigurationSupport support = new RetryTopicConfigurationSupport() {
 			@Override
 			protected RetryTopicComponentFactory createComponentFactory() {
 				return componentFactory;
 			}
 		};
-		KafkaConsumerBackoffManager backoffManager = support.kafkaConsumerBackoffManager(registry);
+		TaskExecutor taskExecutor = support.backoffManagerTaskExecutor();
+		then(componentFactory).should().taskExecutor();
+		assertThat(taskExecutor).isEqualTo(taskExecutorMock);
+	}
 
-		assertThat(backoffManager).isEqualTo(backoffManagerMock);
-		then(componentFactory).should().kafkaBackOffManagerFactory(registry);
-		then(factory).should().create();
+	@Test
+	void testCreatesTaskExecutor() {
+		RetryTopicConfigurationSupport support = new RetryTopicConfigurationSupport();
+		TaskExecutor taskExecutor = support.backoffManagerTaskExecutor();
+		assertThat(taskExecutor).isInstanceOf(ThreadPoolTaskExecutor.class);
+	}
+
+	@Test
+	void testDoesNotCreateTaskExecutorIfTimingAdjustmentDisabled() {
+		RetryTopicComponentFactory componentFactory = mock(RetryTopicComponentFactory.class);
+		RetryTopicConfigurationSupport support = new RetryTopicConfigurationSupport() {
+			@Override
+			protected void configureKafkaBackOffManager(KafkaBackOffManagerConfigurer configurer) {
+				configurer
+						.disableTimingAdjustment();
+			}
+
+			@Override
+			protected RetryTopicComponentFactory createComponentFactory() {
+				return componentFactory;
+			}
+		};
+		TaskExecutor taskExecutor = support.backoffManagerTaskExecutor();
+		then(componentFactory).shouldHaveNoInteractions();
+		assertThat(taskExecutor).isNotInstanceOf(ThreadPoolTaskExecutor.class);
 	}
 
 	@Test
 	void testCreateBackOffManagerNoConfiguration() {
 		ListenerContainerRegistry registry = mock(ListenerContainerRegistry.class);
+		TaskExecutor taskExecutor = mock(TaskExecutor.class);
 		RetryTopicConfigurationSupport support = new RetryTopicConfigurationSupport();
-		KafkaConsumerBackoffManager backoffManager = support.kafkaConsumerBackoffManager(registry);
+		KafkaConsumerBackoffManager backoffManager = support.kafkaConsumerBackoffManager(registry, taskExecutor);
 		assertThat(backoffManager).isNotNull();
 	}
 
@@ -194,7 +280,6 @@ class RetryTopicConfigurationSupportTest {
 		DefaultDestinationTopicResolver resolverMock = mock(DefaultDestinationTopicResolver.class);
 		given(componentFactory.destinationTopicResolver()).willReturn(resolverMock);
 		Consumer<DestinationTopicResolver> dtrConsumer = mock(Consumer.class);
-
 		RetryTopicConfigurationSupport support = new RetryTopicConfigurationSupport() {
 			@Override
 			protected RetryTopicComponentFactory createComponentFactory() {
@@ -211,10 +296,8 @@ class RetryTopicConfigurationSupportTest {
 				nonBlockingRetries.remove(ConversionException.class);
 			}
 		};
-
 		DefaultDestinationTopicResolver resolver = (DefaultDestinationTopicResolver) support.destinationTopicResolver();
 		assertThat(resolver).isEqualTo(resolverMock);
-
 		then(dtrConsumer).should().accept(resolverMock);
 		ArgumentCaptor<Map<Class<? extends Throwable>, Boolean>> captor = ArgumentCaptor.forClass(Map.class);
 		then(resolverMock).should().setClassifications(captor.capture(), eq(true));
