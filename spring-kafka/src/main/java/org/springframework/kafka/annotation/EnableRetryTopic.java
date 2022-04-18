@@ -34,16 +34,21 @@ import org.springframework.kafka.config.RetryTopicConfigurationSupport;
  * &#064;EnableRetryTopic
  * &#064;Configuration
  * public class AppConfig {
- *
- * 	&#064;Bean
- * 	public RetryTopicConfiguration myRetryTopicConfiguration(KafkaTemplate kafkaTemplate) {
- * 		return RetryTopicConfigurationBuilder
- * 					.newInstance()
- * 					.maxAttempts(4)
- * 					.create(kafkaTemplate);
- * 	}
- * 	// other &#064;Bean definitions
  * }
+ *
+ * &#064;Component
+ * public class MyListener {
+ *
+ *     &#064;RetryableTopic(fixedDelayTopicStrategy = FixedDelayStrategy.SINGLE_TOPIC, backoff = @Backoff(4000))
+ *     &#064;KafkaListener(topics =  "myTopic")
+ * 	   public void listen(String message, @Header(KafkaHeaders.RECEIVED_TOPIC) String receivedTopic) {
+ *	       logger.info("Message {} received in topic {} ", message, receivedTopic);
+ *     }
+ *
+ *     &#064;DltHandler
+ *     public void dltHandler(Object message, @Header(KafkaHeaders.RECEIVED_TOPIC) String receivedTopic) {
+ *	       logger.info("Message {} received in dlt handler at topic {} ", message, receivedTopic);
+ *     }
  * </pre>
  *
  * To configure the feature's components, extend the {@link RetryTopicConfigurationSupport}
@@ -72,7 +77,7 @@ import org.springframework.kafka.config.RetryTopicConfigurationSupport;
  * 		protected void configureNonBlockingRetries(NonBlockingRetriesConfigurer nonBlockingRetries) {
  * 			nonBlockingRetries
  * 				.addToFatalExceptions(ShouldSkipBothRetriesException.class);
- * }
+ * } *
  * </pre>
  *
  * @author Tomaz Fernandes

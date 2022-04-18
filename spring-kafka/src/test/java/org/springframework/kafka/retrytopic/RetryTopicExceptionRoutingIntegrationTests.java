@@ -393,7 +393,7 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 		}
 
 		@Override
-		protected void manageNonBlockingRetriesFatalExceptions(List<Class<? extends Throwable>> nonBlockingFatalExceptions) {
+		protected void manageNonBlockingFatalExceptions(List<Class<? extends Throwable>> nonBlockingFatalExceptions) {
 			nonBlockingFatalExceptions.add(ShouldSkipBothRetriesException.class);
 		}
 	}

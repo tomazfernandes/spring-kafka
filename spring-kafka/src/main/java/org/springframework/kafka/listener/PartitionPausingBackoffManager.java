@@ -24,7 +24,6 @@ import java.util.Map;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.common.TopicPartition;
 
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.event.ListenerContainerPartitionIdleEvent;
@@ -47,7 +46,7 @@ import org.springframework.lang.Nullable;
  * @see DefaultErrorHandler
  */
 public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManager,
-		ApplicationListener<ListenerContainerPartitionIdleEvent>, DisposableBean {
+		ApplicationListener<ListenerContainerPartitionIdleEvent> {
 
 	private static final LogAccessor LOGGER = new LogAccessor(LogFactory.getLog(KafkaConsumerBackoffManager.class));
 
@@ -217,13 +216,6 @@ public class PartitionPausingBackoffManager implements KafkaConsumerBackoffManag
 	protected void removeBackoff(TopicPartition topicPartition) {
 		synchronized (this.backOffContexts) {
 			this.backOffContexts.remove(topicPartition);
-		}
-	}
-
-	@Override
-	public void destroy() throws Exception {
-		if (this.kafkaConsumerTimingAdjuster instanceof DisposableBean) {
-			((DisposableBean) this.kafkaConsumerTimingAdjuster).destroy();
 		}
 	}
 }

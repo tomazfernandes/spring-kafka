@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
@@ -29,6 +31,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.annotation.EnableRetryTopic;
+import org.springframework.kafka.annotation.KafkaListenerAnnotationBeanPostProcessor;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
@@ -43,6 +46,7 @@ import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
 import org.springframework.kafka.listener.WakingKafkaConsumerTimingAdjuster;
 import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory;
 import org.springframework.kafka.retrytopic.DefaultDestinationTopicResolver;
+import org.springframework.kafka.retrytopic.DestinationTopic;
 import org.springframework.kafka.retrytopic.DestinationTopicProcessor;
 import org.springframework.kafka.retrytopic.DestinationTopicResolver;
 import org.springframework.kafka.retrytopic.ListenerContainerFactoryConfigurer;
@@ -86,6 +90,7 @@ public class RetryTopicConfigurationSupport {
 	 * @param destinationTopicResolver the global {@link DestinationTopicResolver}.
 	 * @param beanFactory the {@link BeanFactory}.
 	 * @return the instance.
+	 * @see KafkaListenerAnnotationBeanPostProcessor
 	 */
 	@Bean(name = RetryTopicBeanNames.RETRY_TOPIC_CONFIGURER_BEAN_NAME)
 	public RetryTopicConfigurer retryTopicConfigurer(@Qualifier(KafkaListenerConfigUtils.KAFKA_CONSUMER_BACK_OFF_MANAGER_BEAN_NAME)
@@ -207,15 +212,19 @@ public class RetryTopicConfigurationSupport {
 
 	/**
 	 * Override this method to manage non-blocking retries fatal exceptions.
+	 * Records which processing throws an exception present in this list will be
+	 * forwarded directly to the DLT, if one is configured, or stop being processed
+	 * otherwise.
 	 * @param nonBlockingRetriesExceptions a {@link List} of fatal exceptions
-	 * containing the default ones.
+	 * containing the framework defaults.
 	 */
-	protected void manageNonBlockingRetriesFatalExceptions(List<Class<? extends Throwable>> nonBlockingRetriesExceptions) {
+	protected void manageNonBlockingFatalExceptions(List<Class<? extends Throwable>> nonBlockingRetriesExceptions) {
 	}
 
 	/**
 	 * Override this method to configure customizers for components created
-	 * by non-blocking retries' configuration.
+	 * by non-blocking retries' configuration, such as {@link MessageListenerContainer},
+	 * {@link DeadLetterPublishingRecoverer} and {@link DefaultErrorHandler}.
 	 * @param customizersConfigurer a {@link CustomizersConfigurer}.
 	 */
 	protected void configureCustomizers(CustomizersConfigurer customizersConfigurer) {
@@ -223,18 +232,16 @@ public class RetryTopicConfigurationSupport {
 
 	/**
 	 * Return a global {@link DestinationTopicResolver} for resolving
-	 * the {@link org.springframework.kafka.retrytopic.DestinationTopic}
-	 * to which a given {@link org.apache.kafka.clients.consumer.ConsumerRecord}
+	 * the {@link DestinationTopic} to which a given {@link ConsumerRecord}
 	 * should be sent for retry.
 	 *
 	 * To configure it, consider overriding one of these other more
 	 * fine-grained methods:
 	 * <ul>
-	 * <li>{@link #manageNonBlockingRetriesFatalExceptions} for configuring non-blocking retries.
-	 * <li>{@link #customizeDestinationTopicResolver} for further customizing the component.
-	 * <li>{@link #createComponentFactory} for providing a subclass instance.
+	 * <li>{@link #manageNonBlockingFatalExceptions} to configure non-blocking retries.
+	 * <li>{@link #configureDestinationTopicResolver} to further customize the component.
+	 * <li>{@link #createComponentFactory} to provide a subclass instance.
 	 * </ul>
-	 *
 	 * @return the instance.
 	 */
 	@Bean(name = RetryTopicBeanNames.DESTINATION_TOPIC_RESOLVER_BEAN_NAME)
@@ -244,11 +251,11 @@ public class RetryTopicConfigurationSupport {
 			DefaultDestinationTopicResolver ddtr = (DefaultDestinationTopicResolver) destinationTopicResolver;
 			List<Class<? extends Throwable>> fatalExceptions =
 					new ArrayList<>(ExceptionClassifier.defaultFatalExceptionsList());
-			manageNonBlockingRetriesFatalExceptions(fatalExceptions);
+			manageNonBlockingFatalExceptions(fatalExceptions);
 			ddtr.setClassifications(fatalExceptions.stream()
 					.collect(Collectors.toMap(ex -> ex, ex -> false)), true);
 		}
-		Consumer<DestinationTopicResolver> resolverConsumer = customizeDestinationTopicResolver();
+		Consumer<DestinationTopicResolver> resolverConsumer = configureDestinationTopicResolver();
 		Assert.notNull(resolverConsumer, "customizeDestinationTopicResolver must not return null");
 		resolverConsumer.accept(destinationTopicResolver);
 		return destinationTopicResolver;
@@ -258,7 +265,7 @@ public class RetryTopicConfigurationSupport {
 	 * Override this method to configure the {@link DestinationTopicResolver}.
 	 * @return a {@link DestinationTopicResolver} consumer.
 	 */
-	protected Consumer<DestinationTopicResolver> customizeDestinationTopicResolver() {
+	protected Consumer<DestinationTopicResolver> configureDestinationTopicResolver() {
 		return dtr -> {
 		};
 	}
@@ -267,11 +274,11 @@ public class RetryTopicConfigurationSupport {
 	 * Create the {@link KafkaConsumerBackoffManager} instance that will be used to
 	 * back off partitions.
 	 * To configure it, override the {@link #configureKafkaBackOffManager} method.
-	 * To provide a different implementation, either override this method, or
+	 * To provide a custom implementation, either override this method, or
 	 * override the {@link RetryTopicComponentFactory#kafkaBackOffManagerFactory} method
 	 * and return a different {@link KafkaBackOffManagerFactory}.
 	 * @param registry the {@link ListenerContainerRegistry} to be used to fetch the
-	 * {@link MessageListenerContainer} to be backed off.
+	 * {@link MessageListenerContainer} at runtime to be backed off.
 	 * @param taskExecutor the {@link TaskExecutor} to be used with the
 	 * {@link KafkaConsumerTimingAdjuster}.
 	 * @return the instance.
@@ -291,6 +298,13 @@ public class RetryTopicConfigurationSupport {
 		return backOffManagerFactory.create();
 	}
 
+	/**
+	 * Internal method for processing the {@link PartitionPausingBackOffManagerFactory}.
+	 * @param taskExecutor the {@link TaskExecutor} instance to be used with
+	 * {@link WakingKafkaConsumerTimingAdjuster}. Consider overriding the
+	 * {@link #configureKafkaBackOffManager} method for furher customization.
+	 * @param factory the factory instance.
+	 */
 	private void configurePartitionPausingFactory(TaskExecutor taskExecutor,
 												PartitionPausingBackOffManagerFactory factory) {
 		KafkaBackOffManagerConfigurer configurer = new KafkaBackOffManagerConfigurer();
@@ -310,11 +324,8 @@ public class RetryTopicConfigurationSupport {
 	}
 
 	/**
-	 * Create the {@link TaskExecutor} instance that will be used with
-	 * the {@link WakingKafkaConsumerTimingAdjuster} if
-	 * A {@link PartitionPausingBackOffManagerFactory} can be used for that purpose,
-	 * or a different implementation can be provided.
-	 * {@link MessageListenerContainer} to be backed off.
+	 * Create the {@link TaskExecutor} instance that will be used with the
+	 * {@link WakingKafkaConsumerTimingAdjuster}, if timing adjustment is enabled.
 	 * @return the instance.
 	 */
 	@Bean(name = BACK_OFF_MANAGER_THREAD_EXECUTOR_BEAN_NAME)
@@ -335,9 +346,8 @@ public class RetryTopicConfigurationSupport {
 	}
 
 	/**
-	 * Override this method to provide a subclass of
-	 * {@link RetryTopicComponentFactory} with different
-	 * component implementations or subclasses.
+	 * Override this method to provide a subclass of {@link RetryTopicComponentFactory}
+	 * with different component implementations or subclasses.
 	 * @return the instance.
 	 */
 	protected RetryTopicComponentFactory createComponentFactory() {
@@ -376,7 +386,8 @@ public class RetryTopicConfigurationSupport {
 		 * Set the {@link BackOff} that should be used with the blocking retry mechanism.
 		 * By default, a {@link FixedBackOff} with 0 delay and 9 retry attempts
 		 * is configured. Note that this only has any effect for exceptions specified
-		 * with the {@link #retryOn} method - by default blocking retries are disabled.
+		 * with the {@link #retryOn} method - by default blocking retries are disabled
+		 * when using the non-blocking retries feature.
 		 * @param backoff the {@link BackOff} instance.
 		 * @return the configurer.
 		 * @see DefaultErrorHandler
@@ -399,9 +410,9 @@ public class RetryTopicConfigurationSupport {
 		private Clock clock;
 
 		/**
-		 * Disable timing adjustment for the delays. With this option records won't be
-		 * processed exactly at the proper time. It's guaranteed however that records
-		 * won't be processed before their due time.
+		 * Disable timing adjustment for the delays. By choosing this option records
+		 * won't be processed exactly at the proper time. It's guaranteed however that
+		 * records won't be processed before their due time.
 		 * @return the configurer.
 		 * @see WakingKafkaConsumerTimingAdjuster
 		 */

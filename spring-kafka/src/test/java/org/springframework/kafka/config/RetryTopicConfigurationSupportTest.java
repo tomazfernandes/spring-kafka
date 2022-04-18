@@ -287,12 +287,12 @@ class RetryTopicConfigurationSupportTest {
 			}
 
 			@Override
-			protected Consumer<DestinationTopicResolver> customizeDestinationTopicResolver() {
+			protected Consumer<DestinationTopicResolver> configureDestinationTopicResolver() {
 				return dtrConsumer;
 			}
 
 			@Override
-			protected void manageNonBlockingRetriesFatalExceptions(List<Class<? extends Throwable>> nonBlockingRetries) {
+			protected void manageNonBlockingFatalExceptions(List<Class<? extends Throwable>> nonBlockingRetries) {
 				nonBlockingRetries.remove(ConversionException.class);
 			}
 		};

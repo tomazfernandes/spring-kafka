@@ -32,6 +32,7 @@ import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory
 import org.springframework.kafka.retrytopic.DefaultDestinationTopicProcessor;
 import org.springframework.kafka.retrytopic.DefaultDestinationTopicResolver;
 import org.springframework.kafka.retrytopic.DestinationTopic;
+import org.springframework.kafka.retrytopic.DestinationTopicContainer;
 import org.springframework.kafka.retrytopic.DestinationTopicProcessor;
 import org.springframework.kafka.retrytopic.DestinationTopicResolver;
 import org.springframework.kafka.retrytopic.ListenerContainerFactoryConfigurer;
@@ -59,10 +60,11 @@ public class RetryTopicComponentFactory {
 	/**
 	 * Create the {@link RetryTopicConfigurer} that will serve as an entry point
 	 * for configuring non-blocking topic-based delayed retries for a given
-	 * {@link KafkaListenerEndpoint} by processing the appropriate
+	 * {@link KafkaListenerEndpoint}, by processing the appropriate
 	 * {@link RetryTopicConfiguration}.
 	 * @param destinationTopicProcessor the {@link DestinationTopicProcessor} that will be
-	 * used to process the {@link DestinationTopic} instances.
+	 * used to process the {@link DestinationTopic} instances and register them in a
+	 * {@link DestinationTopicContainer}.
 	 * @param listenerContainerFactoryConfigurer the
 	 * {@link ListenerContainerFactoryConfigurer} that will be used to configure the
 	 * {@link KafkaListenerContainerFactory} instances for the non-blocking delayed
@@ -96,9 +98,8 @@ public class RetryTopicComponentFactory {
 
 	/**
 	 * Create the instance of {@link DestinationTopicResolver} that will be used to store
-	 * the {@link DestinationTopic} instances
-	 * and resolve which a given record should be forwarded to.
-	 *
+	 * the {@link DestinationTopic} instance and resolve which a given record should be
+	 * forwarded to.
 	 * @return the instance.
 	 */
 	public DestinationTopicResolver destinationTopicResolver() {
@@ -106,10 +107,9 @@ public class RetryTopicComponentFactory {
 	}
 
 	/**
-	 * Create a {@link DeadLetterPublishingRecovererFactory} that will be used to create
-	 * the {@link DeadLetterPublishingRecoverer} that will forward the records to a given
+	 * Create the {@link DeadLetterPublishingRecovererFactory} that will be used to create
+	 * the {@link DeadLetterPublishingRecoverer} to forward the records to a given
 	 * {@link DestinationTopic}.
-	 *
 	 * @param destinationTopicResolver the {@link DestinationTopicResolver} instance to
 	 * resolve the destinations.
 	 * @return the instance.
@@ -122,7 +122,6 @@ public class RetryTopicComponentFactory {
 	/**
 	 * Create the {@link ListenerContainerFactoryResolver} that will be used to resolve
 	 * the appropriate {@link KafkaListenerContainerFactory} for a given topic.
-	 *
 	 * @param beanFactory the {@link BeanFactory} that will be used to retrieve the
 	 * {@link KafkaListenerContainerFactory} instance if necessary.
 	 * @return the instance.
