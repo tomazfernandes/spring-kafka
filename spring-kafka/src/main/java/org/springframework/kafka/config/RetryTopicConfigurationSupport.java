@@ -56,6 +56,7 @@ import org.springframework.kafka.retrytopic.RetryTopicBootstrapper;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.retrytopic.RetryTopicInternalBeanNames;
 import org.springframework.kafka.retrytopic.RetryTopicNamesProviderFactory;
+import org.springframework.kafka.support.JavaUtils;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.Assert;
 import org.springframework.util.backoff.BackOff;
@@ -79,7 +80,6 @@ public class RetryTopicConfigurationSupport {
 	private final RetryTopicComponentFactory componentFactory = createComponentFactory();
 
 	private static final String BACK_OFF_MANAGER_THREAD_EXECUTOR_BEAN_NAME = "backOffManagerThreadExecutor";
-	private static final int NOT_SET = -1;
 
 	/**
 	 * Return a global {@link RetryTopicConfigurer} for configuring retry topics
@@ -143,11 +143,9 @@ public class RetryTopicConfigurationSupport {
 			DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory) {
 		CustomizersConfigurer customizersConfigurer = new CustomizersConfigurer();
 		configureCustomizers(customizersConfigurer);
-		if (customizersConfigurer.deadLetterPublishingRecovererCustomizer != null) {
-			deadLetterPublishingRecovererFactory
-					.setDeadLetterPublishingRecovererCustomizer(customizersConfigurer
-							.deadLetterPublishingRecovererCustomizer);
-		}
+		JavaUtils.INSTANCE
+				.acceptIfNotNull(customizersConfigurer.deadLetterPublishingRecovererCustomizer,
+						deadLetterPublishingRecovererFactory::setDeadLetterPublishingRecovererCustomizer);
 		Consumer<DeadLetterPublishingRecovererFactory> dlprfConsumer = configureDeadLetterPublishingContainerFactory();
 		Assert.notNull(dlprfConsumer, "configureDeadLetterPublishingContainerFactory must not return null");
 		dlprfConsumer.accept(deadLetterPublishingRecovererFactory);
@@ -173,24 +171,18 @@ public class RetryTopicConfigurationSupport {
 		configureCustomizers(customizersConfigurer);
 		BlockingRetriesConfigurer blockingRetriesConfigurer = new BlockingRetriesConfigurer();
 		configureBlockingRetries(blockingRetriesConfigurer);
-		if (blockingRetriesConfigurer.backOff != null) {
-			listenerContainerFactoryConfigurer
-					.setBlockingRetriesBackOff(blockingRetriesConfigurer.backOff);
-		}
-		if (blockingRetriesConfigurer.retryableExceptions != null) {
-			listenerContainerFactoryConfigurer
-					.setBlockingRetryableExceptions(blockingRetriesConfigurer.retryableExceptions);
-		}
-		if (customizersConfigurer.errorHandlerCustomizer != null) {
-			listenerContainerFactoryConfigurer
-					.setErrorHandlerCustomizer(customizersConfigurer.errorHandlerCustomizer);
-		}
-		if (customizersConfigurer.listenerContainerCustomizer != null) {
-			listenerContainerFactoryConfigurer
-					.setContainerCustomizer(customizersConfigurer.listenerContainerCustomizer);
-		}
-		configureListenerContainerFactoryConfigurer()
-				.accept(listenerContainerFactoryConfigurer);
+		JavaUtils.INSTANCE
+				.acceptIfNotNull(blockingRetriesConfigurer.backOff,
+						listenerContainerFactoryConfigurer::setBlockingRetriesBackOff)
+				.acceptIfNotNull(blockingRetriesConfigurer.retryableExceptions,
+						listenerContainerFactoryConfigurer::setBlockingRetryableExceptions)
+				.acceptIfNotNull(customizersConfigurer.errorHandlerCustomizer,
+						listenerContainerFactoryConfigurer::setErrorHandlerCustomizer)
+				.acceptIfNotNull(customizersConfigurer.listenerContainerCustomizer,
+						listenerContainerFactoryConfigurer::setContainerCustomizer);
+		Consumer<ListenerContainerFactoryConfigurer> lcfcConfigurer = configureListenerContainerFactoryConfigurer();
+		Assert.notNull(lcfcConfigurer, "configureListenerContainerFactoryConfigurer must not return null.");
+		lcfcConfigurer.accept(listenerContainerFactoryConfigurer);
 	}
 
 	/**
@@ -247,18 +239,20 @@ public class RetryTopicConfigurationSupport {
 	@Bean(name = RetryTopicBeanNames.DESTINATION_TOPIC_RESOLVER_BEAN_NAME)
 	public DestinationTopicResolver destinationTopicResolver() {
 		DestinationTopicResolver destinationTopicResolver = this.componentFactory.destinationTopicResolver();
-		if (destinationTopicResolver instanceof DefaultDestinationTopicResolver) {
-			DefaultDestinationTopicResolver ddtr = (DefaultDestinationTopicResolver) destinationTopicResolver;
-			List<Class<? extends Throwable>> fatalExceptions =
-					new ArrayList<>(ExceptionClassifier.defaultFatalExceptionsList());
-			manageNonBlockingFatalExceptions(fatalExceptions);
-			ddtr.setClassifications(fatalExceptions.stream()
-					.collect(Collectors.toMap(ex -> ex, ex -> false)), true);
-		}
+		JavaUtils.INSTANCE.acceptIfInstanceOf(DefaultDestinationTopicResolver.class, destinationTopicResolver,
+				this::configureNonBlockingFatalExceptions);
 		Consumer<DestinationTopicResolver> resolverConsumer = configureDestinationTopicResolver();
 		Assert.notNull(resolverConsumer, "customizeDestinationTopicResolver must not return null");
 		resolverConsumer.accept(destinationTopicResolver);
 		return destinationTopicResolver;
+	}
+
+	private void configureNonBlockingFatalExceptions(DefaultDestinationTopicResolver destinationTopicResolver) {
+		List<Class<? extends Throwable>> fatalExceptions =
+				new ArrayList<>(ExceptionClassifier.defaultFatalExceptionsList());
+		manageNonBlockingFatalExceptions(fatalExceptions);
+		destinationTopicResolver.setClassifications(fatalExceptions.stream()
+				.collect(Collectors.toMap(ex -> ex, ex -> false)), true);
 	}
 
 	/**
@@ -291,10 +285,8 @@ public class RetryTopicConfigurationSupport {
 
 		KafkaBackOffManagerFactory backOffManagerFactory =
 				this.componentFactory.kafkaBackOffManagerFactory(registry);
-		if (backOffManagerFactory instanceof PartitionPausingBackOffManagerFactory) {
-			configurePartitionPausingFactory(taskExecutor,
-					(PartitionPausingBackOffManagerFactory) backOffManagerFactory);
-		}
+		JavaUtils.INSTANCE.acceptIfInstanceOf(PartitionPausingBackOffManagerFactory.class, backOffManagerFactory,
+				factory -> configurePartitionPausingFactory(taskExecutor, factory));
 		return backOffManagerFactory.create();
 	}
 
@@ -309,18 +301,16 @@ public class RetryTopicConfigurationSupport {
 												PartitionPausingBackOffManagerFactory factory) {
 		KafkaBackOffManagerConfigurer configurer = new KafkaBackOffManagerConfigurer();
 		configureKafkaBackOffManager(configurer);
+		Assert.isTrue(!configurer.timingAdjustmentEnabled
+						|| configurer.maxThreadPoolSize == null
+						|| ThreadPoolTaskExecutor.class.isAssignableFrom(taskExecutor.getClass()),
+				() -> "TaskExecutor must be an instance of ThreadPoolTaskExecutor to set maxThreadPoolSize");
 		factory.setTimingAdjustmentEnabled(configurer.timingAdjustmentEnabled);
-		if (configurer.timingAdjustmentEnabled) {
-			factory.setTaskExecutor(taskExecutor);
-			if (configurer.maxThreadPoolSize != NOT_SET) {
-				Assert.isInstanceOf(ThreadPoolTaskExecutor.class, taskExecutor,
-						() -> "TaskExecutor must be an instance of ThreadPoolTaskExecutor to set maxThreadPoolSize");
-				((ThreadPoolTaskExecutor) taskExecutor).setMaxPoolSize(configurer.maxThreadPoolSize);
-			}
-		}
-		if (configurer.clock != null) {
-			factory.setClock(configurer.clock);
-		}
+		JavaUtils.INSTANCE
+				.acceptIfNotNull(configurer.maxThreadPoolSize, poolSize -> ((ThreadPoolTaskExecutor) taskExecutor)
+						.setMaxPoolSize(poolSize))
+				.acceptIfCondition(configurer.timingAdjustmentEnabled, taskExecutor, factory::setTaskExecutor)
+				.acceptIfNotNull(configurer.clock, factory::setClock);
 	}
 
 	/**
@@ -405,7 +395,7 @@ public class RetryTopicConfigurationSupport {
 
 		boolean timingAdjustmentEnabled = true;
 
-		private int maxThreadPoolSize = NOT_SET;
+		private Integer maxThreadPoolSize = null;
 
 		private Clock clock;
 
