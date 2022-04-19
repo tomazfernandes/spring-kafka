@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -383,6 +382,7 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 
 	}
 
+	@Configuration
 	public static class RoutingTestsConfigurationSupport extends RetryTopicConfigurationSupport {
 
 		@Override
@@ -426,7 +426,6 @@ public class RetryTopicExceptionRoutingIntegrationTests {
 	}
 
 	@EnableKafka
-	@Import(RoutingTestsConfigurationSupport.class)
 	@Configuration
 	public static class KafkaConsumerConfig {
 

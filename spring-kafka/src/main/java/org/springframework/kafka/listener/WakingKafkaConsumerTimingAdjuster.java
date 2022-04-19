@@ -54,7 +54,7 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 
 	private int pollTimeoutsForAdjustmentWindow = DEFAULT_POLL_TIMEOUTS_FOR_ADJUSTMENT_WINDOW;
 
-	private TaskExecutor taskExecutor;
+	private final TaskExecutor taskExecutor;
 
 	private final Sleeper sleeper;
 
@@ -71,7 +71,7 @@ public class WakingKafkaConsumerTimingAdjuster implements KafkaConsumerTimingAdj
 	}
 
 	/**
-	 * Create an instance with the provided TaskExecutor and a thread sleeper.
+	 * Create an instance with the provided {@link TaskExecutor} and a thread sleeper.
 	 * @param taskExecutor the task executor.
 	 */
 	public WakingKafkaConsumerTimingAdjuster(TaskExecutor taskExecutor) {

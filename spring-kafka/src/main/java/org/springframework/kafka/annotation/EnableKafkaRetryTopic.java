@@ -31,7 +31,7 @@ import org.springframework.kafka.config.RetryTopicConfigurationSupport;
  * {@link Configuration Configuration} classes as follows:
  * <pre class="code">
  *
- * &#064;EnableRetryTopic
+ * &#064;EnableKafkaRetryTopic
  * &#064;Configuration
  * public class AppConfig {
  * }
@@ -60,12 +60,7 @@ import org.springframework.kafka.config.RetryTopicConfigurationSupport;
  *
  * &#064;Configuration
  * &#064;EnableKafka
- * &#064;Import(MyRetryTopicConfigurationSupport.class)
- * public class AppConfig {
- * }
- *
- * public static class MyRetryTopicConfigurationSupport extends RetryTopicConfigurationSupport {
- *
+ * public class AppConfig extends RetryTopicConfigurationSupport {
  * 		&#064;Override
  * 		protected void configureBlockingRetries(BlockingRetriesConfigurer blockingRetries) {
  * 			blockingRetries
@@ -77,7 +72,7 @@ import org.springframework.kafka.config.RetryTopicConfigurationSupport;
  * 		protected void configureNonBlockingRetries(NonBlockingRetriesConfigurer nonBlockingRetries) {
  * 			nonBlockingRetries
  * 				.addToFatalExceptions(ShouldSkipBothRetriesException.class);
- * } *
+ * }
  * </pre>
  *
  * @author Tomaz Fernandes
@@ -87,5 +82,6 @@ import org.springframework.kafka.config.RetryTopicConfigurationSupport;
 @Target(ElementType.TYPE)
 @Documented
 @Import(RetryTopicConfigurationSupport.class)
-public @interface EnableRetryTopic {
+@EnableKafka
+public @interface EnableKafkaRetryTopic {
 }

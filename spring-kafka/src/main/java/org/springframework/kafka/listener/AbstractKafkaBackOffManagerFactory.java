@@ -18,6 +18,8 @@ package org.springframework.kafka.listener;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.kafka.config.KafkaListenerConfigUtils;
 import org.springframework.util.Assert;
 
@@ -84,6 +86,10 @@ public abstract class AbstractKafkaBackOffManagerFactory
 
 	protected <T> T getBean(String beanName, Class<T> beanClass) {
 		return this.applicationContext.getBean(beanName, beanClass);
+	}
+
+	protected void addApplicationListener(ApplicationListener<?> applicationListener) {
+		((ConfigurableApplicationContext) this.applicationContext).addApplicationListener(applicationListener);
 	}
 
 	@Override

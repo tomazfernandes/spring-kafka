@@ -19,11 +19,10 @@ package org.springframework.kafka.config;
 import java.time.Clock;
 
 import org.springframework.beans.factory.BeanFactory;
-import org.springframework.core.task.TaskExecutor;
+import org.springframework.context.ApplicationContext;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.KafkaBackOffManagerFactory;
 import org.springframework.kafka.listener.KafkaConsumerBackoffManager;
-import org.springframework.kafka.listener.KafkaConsumerTimingAdjuster;
 import org.springframework.kafka.listener.ListenerContainerRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.listener.PartitionPausingBackOffManagerFactory;
@@ -41,7 +40,6 @@ import org.springframework.kafka.retrytopic.RetryTopicConfiguration;
 import org.springframework.kafka.retrytopic.RetryTopicConfigurer;
 import org.springframework.kafka.retrytopic.RetryTopicNamesProviderFactory;
 import org.springframework.kafka.retrytopic.SuffixingRetryTopicNamesProviderFactory;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
  * Provide the component instances that will be used with
@@ -77,9 +75,10 @@ public class RetryTopicComponentFactory {
 	 * @return the instance.
 	 */
 	public RetryTopicConfigurer retryTopicConfigurer(DestinationTopicProcessor destinationTopicProcessor,
-													ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer,
-													ListenerContainerFactoryResolver factoryResolver,
-													RetryTopicNamesProviderFactory retryTopicNamesProviderFactory) {
+			ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer,
+			ListenerContainerFactoryResolver factoryResolver,
+			RetryTopicNamesProviderFactory retryTopicNamesProviderFactory) {
+
 		return new RetryTopicConfigurer(destinationTopicProcessor, factoryResolver,
 				listenerContainerFactoryConfigurer, retryTopicNamesProviderFactory);
 	}
@@ -116,6 +115,7 @@ public class RetryTopicComponentFactory {
 	 */
 	public DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory(
 			DestinationTopicResolver destinationTopicResolver) {
+
 		return new DeadLetterPublishingRecovererFactory(destinationTopicResolver);
 	}
 
@@ -142,8 +142,8 @@ public class RetryTopicComponentFactory {
 	 * @return the instance.
 	 */
 	public ListenerContainerFactoryConfigurer listenerContainerFactoryConfigurer(KafkaConsumerBackoffManager kafkaConsumerBackoffManager,
-																				DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
-																				Clock clock) {
+			DeadLetterPublishingRecovererFactory deadLetterPublishingRecovererFactory,
+			Clock clock) {
 
 		return new ListenerContainerFactoryConfigurer(kafkaConsumerBackoffManager, deadLetterPublishingRecovererFactory, clock);
 	}
@@ -162,19 +162,15 @@ public class RetryTopicComponentFactory {
 	 * {@link KafkaConsumerBackoffManager} instance used to back off the partitions.
 	 * @param registry the {@link ListenerContainerRegistry} used to fetch the
 	 * {@link MessageListenerContainer}.
+	 * @param context the context.
 	 * @return the instance.
 	 */
-	public KafkaBackOffManagerFactory kafkaBackOffManagerFactory(ListenerContainerRegistry registry) {
-		return new PartitionPausingBackOffManagerFactory(registry);
-	}
+	public KafkaBackOffManagerFactory kafkaBackOffManagerFactory(ListenerContainerRegistry registry,
+			ApplicationContext context) {
 
-	/**
-	 * Create the {@link TaskExecutor} that will be used in the
-	 * {@link KafkaConsumerTimingAdjuster}.
-	 * @return the task executor.
-	 */
-	public TaskExecutor taskExecutor() {
-		return new ThreadPoolTaskExecutor();
+		PartitionPausingBackOffManagerFactory factory = new PartitionPausingBackOffManagerFactory(registry);
+		factory.setApplicationContext(context);
+		return factory;
 	}
 
 	/**

@@ -41,8 +41,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.DltHandler;
-import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.annotation.EnableRetryTopic;
+import org.springframework.kafka.annotation.EnableKafkaRetryTopic;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.PartitionOffset;
 import org.springframework.kafka.annotation.RetryableTopic;
@@ -507,8 +506,7 @@ public class RetryTopicIntegrationTests {
 		}
 	}
 
-	@EnableKafka
-	@EnableRetryTopic
+	@EnableKafkaRetryTopic
 	@Configuration
 	public static class KafkaConsumerConfig {
 
