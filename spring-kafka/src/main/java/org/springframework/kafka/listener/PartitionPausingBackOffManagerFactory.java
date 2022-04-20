@@ -18,10 +18,7 @@ package org.springframework.kafka.listener;
 
 import java.time.Clock;
 
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.kafka.support.JavaUtils;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.Assert;
 
@@ -29,6 +26,9 @@ import org.springframework.util.Assert;
  *
  * Creates a {@link KafkaConsumerBackoffManager} instance
  * with or without a {@link KafkaConsumerTimingAdjuster}.
+ * IMPORTANT: Since 2.9 this class doesn't create a {@link ThreadPoolTaskExecutor}
+ * by default. In order for the factory to create a {@link KafkaConsumerTimingAdjuster},
+ * such thread executor must be provided.
  *
  * @author Tomaz Fernandes
  * @since 2.7
@@ -42,8 +42,6 @@ public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffM
 	private TaskExecutor taskExecutor;
 
 	private Clock clock;
-
-	private Integer maxThreadPoolSize;
 
 	/**
 	 * Construct a factory instance that will create the {@link KafkaConsumerBackoffManager}
@@ -135,16 +133,6 @@ public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffM
 	}
 
 	/**
-	 * Sets the maximum number of threads the default {@link ThreadPoolTaskExecutor}
-	 * will use in the {@link WakingKafkaConsumerTimingAdjuster}.
-	 * @param maxThreadPoolSize the maximum pool size.
-	 * @since 2.9
-	 */
-	public void setMaxThreadPoolSize(int maxThreadPoolSize) {
-		this.maxThreadPoolSize = maxThreadPoolSize;
-	}
-
-	/**
 	 * Set the {@link Clock} instance that will be used in the
 	 * {@link KafkaConsumerBackoffManager}.
 	 * @param clock the clock instance.
@@ -164,7 +152,7 @@ public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffM
 	}
 
 	private PartitionPausingBackoffManager getKafkaConsumerBackoffManager(ListenerContainerRegistry registry) {
-		return this.timingAdjustmentEnabled
+		return this.timingAdjustmentEnabled && this.taskExecutor != null
 			? new PartitionPausingBackoffManager(registry, getOrCreateBackOffTimingAdjustmentManager(), this.clock)
 			: new PartitionPausingBackoffManager(registry, this.clock);
 	}
@@ -173,20 +161,7 @@ public class PartitionPausingBackOffManagerFactory extends AbstractKafkaBackOffM
 		if (this.timingAdjustmentManager != null) {
 			return this.timingAdjustmentManager;
 		}
-		Assert.isTrue(this.taskExecutor == null || this.maxThreadPoolSize == null,
-				() -> "maxThreadPoolSize should not be used when providing a TaskExecutor instance" +
-						"- configure the TaskExecutor instance directly instead.");
-		return this.taskExecutor != null
-				? new WakingKafkaConsumerTimingAdjuster(this.taskExecutor)
-				: new WakingKafkaConsumerTimingAdjuster(createTaskExecutor());
-	}
-
-	private TaskExecutor createTaskExecutor() {
-		ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
-		JavaUtils.INSTANCE.acceptIfNotNull(this.maxThreadPoolSize, taskExecutor::setMaxPoolSize);
-		taskExecutor.initialize();
-		super.addApplicationListener((ApplicationListener<ContextClosedEvent>) event -> taskExecutor.shutdown());
-		return taskExecutor;
+		return new WakingKafkaConsumerTimingAdjuster(this.taskExecutor);
 	}
 
 }

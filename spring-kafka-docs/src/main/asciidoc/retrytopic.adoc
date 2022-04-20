@@ -48,7 +48,7 @@ NOTE: You can have separate `ListenerContainerFactory` instances for the main an
 
 ==== Configuration
 
-Since 2.9, the `EnableKafkaRetryTopic` annotation should be used in a `@Configuration` annotated class.
+Since 2.9, the `@EnableKafkaRetryTopic` annotation should be used in a `@Configuration` annotated class instead of the regular `@EnableKafka` annotation, which it contains.
 This enables the feature to bootstrap properly and gives access to injecting some of the feature's components to be looked up at runtime.
 Also, to configure the feature's components and global features, the `RetryTopicConfigurationSupport` class should be extended in a `@Configuration` class, and the appropriate methods overridden.
 For more details refer to <<retry-topic-global-settings>>.
@@ -187,7 +187,7 @@ public class MyRetryTopicConfiguration extends RetryTopicConfigurationSupport {
 ----
 ====
 
-IMPORTANT: When using this configuration approach, the `EnableKafkaRetryTopic` annotation should not be used to prevent context failing to start due to duplicated beans.
+IMPORTANT: When using this configuration approach, the `@EnableKafkaRetryTopic` annotation should not be used to prevent context failing to start due to duplicated beans.
 Use the simple `@EnableKafka` annotation instead.
 
 ==== Features
