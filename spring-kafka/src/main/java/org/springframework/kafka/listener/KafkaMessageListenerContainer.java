@@ -166,6 +166,7 @@ import io.micrometer.observation.ObservationRegistry;
  * @author Christian Mergenthaler
  * @author Mikael Carlstedt
  * @author Borahm Lee
+ * @author Lokesh Alamuri
  */
 public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 		extends AbstractMessageListenerContainer<K, V> implements ConsumerPauseResumeEventPublisher {
@@ -378,7 +379,6 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			}
 		}
 		this.listenerConsumer = new ListenerConsumer(listener, listenerType, observationRegistry);
-		this.thisOrParentContainer.childStarted(this);
 		setRunning(true);
 		this.startLatch = new CountDownLatch(1);
 		this.listenerConsumerFuture = consumerExecutor.submitCompletable(this.listenerConsumer);
@@ -1369,6 +1369,7 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			this.count = 0;
 			this.last = System.currentTimeMillis();
 			initAssignedPartitions();
+			KafkaMessageListenerContainer.this.thisOrParentContainer.childStarted(KafkaMessageListenerContainer.this);
 			publishConsumerStartedEvent();
 		}
 
